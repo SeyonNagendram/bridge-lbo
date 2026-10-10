@@ -37,7 +37,7 @@ All calculation runs in the browser. Recalculation must feel instant (< 1 ms for
 
 ## 3. Inputs
 
-Grouped exactly like this in the UI. Units shown next to each field.
+Grouped exactly like this in the UI. Units shown next to each field. *(Updated after Phase 1: currency goes in the label instead, "Revenue, Year 0 (€m)", and the field shows only the number with one decimal, e.g. `50.0`.)*
 
 **Transaction**
 | Input | Default | Range |
@@ -210,7 +210,7 @@ Additional required tests:
 - Corner radius 6px on tiles and inputs, 0 on tables.
 - Numbers right-aligned, tabular figures, consistent decimals: €m to 1 decimal, multiples `8.0x`, percentages `20.6%`. Negative values in parentheses `(1.6)`, as in banking.
   - *(Updated after Phase 1)* MoM always has two decimals (`2.55x`); entry/exit multiples and leverage keep one (`8.0x`).
-  - *(Updated after Phase 1)* No space between a number and its unit, in inputs and outputs alike: `8.0x`, `20.0%`.
+  - *(Updated after Phase 1)* The symbols `x` and `%` sit flush against the number, in inputs and outputs alike: `8.0x`, `20.0%`. Words take a space: `5 years`. Currency (€m) goes in labels and column headers, not next to the figure.
 - Units in column headers or labels, never repeated in every cell.
 - Motion: only 150ms opacity/colour transitions; respect `prefers-reduced-motion`. No animated number counters. *(Exception added after Phase 1: the ~600ms change highlight in §11.)*
 
@@ -287,7 +287,7 @@ Added in the fix-and-refine pass between Phase 1 and Phase 2. They are part of t
 
 6. **Live deal summary.** Under the title, one sentence that updates with the inputs, written like the first line of an investment memo, e.g. "Acquire at 8.0x EBITDA (€80.0m), funded 61% debt / 39% equity; exit after 5 years at 8.0x → 20.6% IRR, 2.55x MoM." Key figures in medium weight. While inputs are invalid it describes the last valid result. With zero leverage it reads "funded entirely with equity"; with a non-meaningful IRR it shows "n.m. IRR". Debt/equity percentages are whole numbers that always sum to 100. (Text built by `dealSummary` in `lib/deal.ts`, unit-tested.)
 7. **KPI hierarchy.** The IRR tile is the headline: twice the width of each other tile on desktop (`2fr 1fr 1fr 1fr`); mobile stays 2 × 2. Tiles are compact (12px side padding); figures share a baseline across tiles even when a label wraps.
-8. **Delta vs base case.** Under each KPI, a small line such as "+2.1pp vs base" (IRR), "+0.12x vs base" (MoM) or "+5.1 vs base" (€m tiles), with an explicit +/− sign rather than parentheses. Coloured by sign: `--positive` up, `--negative` down, muted when it rounds to zero. Hidden when the inputs equal the base case; the line keeps its height so the tiles never jump. Not shown when either IRR is n.m.
+8. **Delta vs base case.** Under each KPI, a small line such as "+2.1pp vs base" (IRR), "+0.12x vs base" (MoM) or "+5.1 vs base" (€m tiles), with an explicit +/− sign rather than parentheses. Coloured by meaning, not sign: for IRR, MoM and Equity at exit, `--positive` up and `--negative` down; the Equity invested delta is always muted, because a bigger cheque is not good news. Any delta that rounds to zero is muted. Hidden when the inputs equal the base case; the line keeps its height so the tiles never jump. Not shown when either IRR is n.m.
 9. **Capital structure bar** in Sources & Uses: one thin (8px) horizontal bar split into debt and equity, square ends, hairline outline, labelled "Debt 61%" / "Equity 39%". Not animated. Has a text alternative (`role="img"` + `aria-label`).
 10. **Typography.** Source Serif 4 via `next/font`, weight 600 only, for the page title and section headings (including the assumption group titles). Inputs, tables and all numbers stay in Inter with tabular figures.
 11. **Change highlighting.** When an output value changes, its cell or tile gets a faint accent tint (`--accent` at 12% over `--surface`) that fades out over about 600ms. Not on first load. Disabled under `prefers-reduced-motion`. No number counting animations.

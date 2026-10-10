@@ -18,11 +18,13 @@ interface TileProps {
   figure: string;
   /** null = no delta to show (base case, or not meaningful). */
   delta: Delta | null;
+  /** Deltas are coloured by meaning (up = good news). Neutral keeps them grey: a bigger cheque is not good news. */
+  neutral?: boolean;
   headline?: boolean;
   note?: string;
 }
 
-function Tile({ label, figure, delta, headline = false, note }: TileProps) {
+function Tile({ label, figure, delta, neutral = false, headline = false, note }: TileProps) {
   const ref = useFlash<HTMLDivElement>(figure);
   return (
     <div ref={ref} className="flex flex-col rounded-[6px] border border-border bg-surface px-3 pt-2 pb-2.5">
@@ -41,7 +43,11 @@ function Tile({ label, figure, delta, headline = false, note }: TileProps) {
         </span>
         {note && <span className="block text-[12px] leading-4 text-muted">{note}</span>}
         {/* The line is always present, so tiles don't change height when deltas appear. */}
-        <span className={`block text-[12px] leading-4 ${delta ? DELTA_COLOUR[delta.direction] : ""}`}>
+        <span
+          className={`block text-[12px] leading-4 ${
+            delta ? (neutral ? "text-muted" : DELTA_COLOUR[delta.direction]) : ""
+          }`}
+        >
           {delta ? `${delta.text} vs base` : " "}
         </span>
       </dd>
@@ -90,6 +96,7 @@ export function KpiTiles({ result }: { result: LboResult }) {
         <Tile
           label="Equity invested (€m)"
           figure={formatMoney(entry.equity)}
+          neutral
           delta={showDeltas ? formatDelta(entry.equity - BASE.entry.equity, 1) : null}
         />
         <Tile

@@ -19,7 +19,8 @@ describe("input fields", () => {
   it("shows percentages as whole-number percent with one decimal", () => {
     expect(formatInputValue(0.2, pct)).toBe("20.0");
     expect(formatInputValue(8, mult)).toBe("8.0");
-    expect(formatInputValue(50, revenue)).toBe("50");
+    expect(formatInputValue(50, revenue)).toBe("50.0");
+    expect(formatInputValue(5, INPUT_SPECS.holdingPeriod)).toBe("5");
   });
   it("parses typed text, tolerating units and separators", () => {
     expect(parseInputValue("20.5", pct)).toBe(0.205);

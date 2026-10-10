@@ -3,16 +3,19 @@
 import type { KeyboardEvent } from "react";
 import type { InputKey, InputSpec } from "@/lib/lbo";
 
-const UNIT_LABEL: Record<InputSpec["unit"], string> = {
-  "€m": "€m",
-  "%": "%",
-  x: "x",
-  years: "yrs",
+// Unit shown beside the figure. Symbols (x, %) sit flush, words take a space ("5 years").
+// Currency goes in the label instead ("Revenue, Year 0 (€m)"), so the field shows only "50.0".
+const UNIT_BESIDE: Record<InputSpec["unit"], { text: string; spaced: boolean } | null> = {
+  "€m": null,
+  "%": { text: "%", spaced: false },
+  x: { text: "x", spaced: false },
+  years: { text: "years", spaced: true },
 };
 
-// The visible unit sits outside the label, so screen readers get it spelled out here.
-const UNIT_SPOKEN: Record<InputSpec["unit"], string> = {
-  "€m": "in € millions",
+const UNIT_IN_LABEL: Partial<Record<InputSpec["unit"], string>> = { "€m": "(€m)" };
+
+// The unit beside the field sits outside the label, so screen readers get it spelled out here.
+const UNIT_SPOKEN: Partial<Record<InputSpec["unit"], string>> = {
   "%": "in percent",
   x: "as a multiple",
   years: "in years",
@@ -30,10 +33,14 @@ interface NumberFieldProps {
   onBlur: (field: InputKey) => void;
 }
 
+// 24px wide: the WCAG 2.2 minimum target size, and it leaves the labels room on one line.
 const stepButton =
-  "flex w-7 shrink-0 items-center justify-center text-muted transition-colors duration-150 hover:text-text";
+  "flex w-6 shrink-0 items-center justify-center text-muted transition-colors duration-150 hover:text-text";
 
 export function NumberField({ field, spec, hint, draft, error, onDraftChange, onStep, onBlur }: NumberFieldProps) {
+  const unitBeside = UNIT_BESIDE[spec.unit];
+  const unitInLabel = UNIT_IN_LABEL[spec.unit];
+  const unitSpoken = UNIT_SPOKEN[spec.unit];
   const id = `input-${field}`;
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -48,11 +55,12 @@ export function NumberField({ field, spec, hint, draft, error, onDraftChange, on
 
   return (
     <div className="py-2">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <label htmlFor={id} className="block">
             {spec.label}
-            <span className="sr-only">, {UNIT_SPOKEN[spec.unit]}</span>
+            {unitInLabel && ` ${unitInLabel}`}
+            {unitSpoken && <span className="sr-only">, {unitSpoken}</span>}
           </label>
           {hint && (
             <span id={hintId} className="block text-[12px] leading-4 text-muted">
@@ -83,11 +91,14 @@ export function NumberField({ field, spec, hint, draft, error, onDraftChange, on
             onKeyDown={handleKeyDown}
             onBlur={() => onBlur(field)}
             // 16px on small screens stops iOS Safari zooming in on focus.
-            className="w-14 bg-transparent text-right text-[16px] text-input lg:text-[14px]"
+            className="w-16 bg-transparent text-right text-[16px] text-input lg:w-14 lg:text-[14px]"
           />
-          {/* Unit sits flush against the figure: "8.0x", not "8.0 x". */}
-          <span aria-hidden="true" className="flex w-7 items-center text-[13px] text-muted">
-            {UNIT_LABEL[spec.unit]}
+          {/* Same-width unit slot on every field, so the figures line up in one column. */}
+          <span
+            aria-hidden="true"
+            className={`flex w-10 items-center text-[13px] text-muted ${unitBeside?.spaced ? "pl-1" : ""}`}
+          >
+            {unitBeside?.text}
           </span>
           <button type="button" tabIndex={-1} aria-label={`Increase ${spec.label}`} className={stepButton} onClick={() => onStep(field, 1)}>
             +

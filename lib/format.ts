@@ -79,7 +79,7 @@ export function formatInputValue(value: number, spec: InputSpec): string {
     case "x":
       return value.toFixed(1);
     case "€m":
-      return String(Number(value.toFixed(1)));
+      return value.toFixed(1);
     case "years":
       return String(Math.round(value));
   }
