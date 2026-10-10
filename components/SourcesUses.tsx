@@ -1,10 +1,22 @@
 import type { EntryValues } from "@/lib/lbo";
+import { fundingSplit } from "@/lib/deal";
 import { formatMoney } from "@/lib/format";
 import { sectionTitle } from "./styles";
+import { useFlash } from "./useFlash";
 
 interface Row {
   label: string;
   value: number;
+}
+
+function MoneyCell({ value }: { value: number }) {
+  const text = formatMoney(value);
+  const ref = useFlash<HTMLTableCellElement>(text);
+  return (
+    <td ref={ref} className="py-2 text-right">
+      {text}
+    </td>
+  );
 }
 
 function MoneyTable({ title, rows, total }: { title: string; rows: Row[]; total: Row }) {
@@ -26,17 +38,42 @@ function MoneyTable({ title, rows, total }: { title: string; rows: Row[]; total:
             <th scope="row" className="py-2 text-left font-normal">
               {row.label}
             </th>
-            <td className="py-2 text-right">{formatMoney(row.value)}</td>
+            <MoneyCell value={row.value} />
           </tr>
         ))}
         <tr className="border-b border-border font-medium">
           <th scope="row" className="py-2 text-left font-medium">
             {total.label}
           </th>
-          <td className="py-2 text-right">{formatMoney(total.value)}</td>
+          <MoneyCell value={total.value} />
         </tr>
       </tbody>
     </table>
+  );
+}
+
+/** One thin bar split into debt and equity: square ends, hairline outline, no animation. */
+function CapitalStructureBar({ entry }: { entry: EntryValues }) {
+  const split = fundingSplit(entry);
+  return (
+    <div className="mt-6">
+      <div aria-hidden="true" className="flex justify-between text-[13px]">
+        <span>
+          Debt <span className="font-medium">{split.debtPct}%</span>
+        </span>
+        <span>
+          Equity <span className="font-medium">{split.equityPct}%</span>
+        </span>
+      </div>
+      <div
+        role="img"
+        aria-label={`Capital structure: ${split.debtPct}% debt, ${split.equityPct}% equity`}
+        className="mt-1 flex h-2 border border-border"
+      >
+        <div className="bg-muted" style={{ width: `${split.debtShare * 100}%` }} />
+        <div className="flex-1 bg-border" />
+      </div>
+    </div>
   );
 }
 
@@ -64,6 +101,7 @@ export function SourcesUses({ entry }: { entry: EntryValues }) {
           total={{ label: "Total sources", value: entry.debt + entry.equity }}
         />
       </div>
+      <CapitalStructureBar entry={entry} />
     </section>
   );
 }

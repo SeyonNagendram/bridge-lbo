@@ -5,16 +5,23 @@ import type { InputSpec } from "./lbo";
 
 const NOT_MEANINGFUL = "n.m.";
 
-const oneDecimal = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+const numberFormats = new Map<number, Intl.NumberFormat>();
 
-/** Formats |value| to one decimal and wraps negatives in parentheses; "-0.0" becomes "0.0". */
-function withParens(value: number, suffix: string): string {
+/** en-US number with a fixed number of decimals, e.g. 1,234.5. */
+function fixed(value: number, decimals: number): string {
+  let format = numberFormats.get(decimals);
+  if (!format) {
+    format = new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    numberFormats.set(decimals, format);
+  }
+  return format.format(value);
+}
+
+/** Formats |value| and wraps negatives in parentheses; "-0.0" becomes "0.0". */
+function withParens(value: number, suffix: string, decimals = 1): string {
   if (!Number.isFinite(value)) return NOT_MEANINGFUL;
-  const text = oneDecimal.format(Math.abs(value));
-  const roundsToZero = text === oneDecimal.format(0);
+  const text = fixed(Math.abs(value), decimals);
+  const roundsToZero = text === fixed(0, decimals);
   return value < 0 && !roundsToZero ? `(${text}${suffix})` : `${text}${suffix}`;
 }
 
@@ -23,14 +30,42 @@ export function formatMoney(value: number): string {
   return withParens(value, "");
 }
 
-/** Multiple, e.g. 8.0x, (0.5x). */
+/** Multiple, e.g. 8.0x, (0.5x). Entry/exit multiples and leverage use one decimal. */
 export function formatMultiple(value: number): string {
   return withParens(value, "x");
+}
+
+/** Money-on-money multiple, two decimals, e.g. 2.55x. */
+export function formatMoM(value: number): string {
+  return withParens(value, "x", 2);
 }
 
 /** Decimal as a percentage, e.g. 0.2062 → 20.6%, −0.05 → (5.0%). */
 export function formatPercent(value: number): string {
   return withParens(value * 100, "%");
+}
+
+// ── Deltas vs base case ──────────────────────────────────────────────────────
+
+export type DeltaDirection = "up" | "down" | "flat";
+
+export interface Delta {
+  /** e.g. "+2.1pp", "−0.12x", "0.0" */
+  text: string;
+  direction: DeltaDirection;
+}
+
+/**
+ * A change shown with an explicit sign rather than parentheses, e.g. +2.1pp / −0.12x.
+ * Anything that rounds to zero is "flat" and unsigned, so colour never disagrees with the digits.
+ */
+export function formatDelta(value: number, decimals: number, suffix = ""): Delta | null {
+  if (!Number.isFinite(value)) return null;
+  const text = fixed(Math.abs(value), decimals);
+  if (text === fixed(0, decimals)) return { text: `${text}${suffix}`, direction: "flat" };
+  return value > 0
+    ? { text: `+${text}${suffix}`, direction: "up" }
+    : { text: `\u2212${text}${suffix}`, direction: "down" };
 }
 
 // ── Input fields ─────────────────────────────────────────────────────────────

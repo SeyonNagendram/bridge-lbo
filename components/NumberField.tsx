@@ -85,7 +85,8 @@ export function NumberField({ field, spec, hint, draft, error, onDraftChange, on
             // 16px on small screens stops iOS Safari zooming in on focus.
             className="w-14 bg-transparent text-right text-[16px] text-input lg:text-[14px]"
           />
-          <span aria-hidden="true" className="flex w-7 items-center pl-1 text-[13px] text-muted">
+          {/* Unit sits flush against the figure: "8.0x", not "8.0 x". */}
+          <span aria-hidden="true" className="flex w-7 items-center text-[13px] text-muted">
             {UNIT_LABEL[spec.unit]}
           </span>
           <button type="button" tabIndex={-1} aria-label={`Increase ${spec.label}`} className={stepButton} onClick={() => onStep(field, 1)}>

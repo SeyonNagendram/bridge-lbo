@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatDelta,
   formatInputValue,
+  formatMoM,
   formatMoney,
   formatMultiple,
   formatPercent,
@@ -69,5 +71,25 @@ describe("formatPercent", () => {
   it("formats decimals as percentages", () => {
     expect(formatPercent(0.20621)).toBe("20.6%");
     expect(formatPercent(-0.05)).toBe("(5.0%)");
+  });
+});
+
+describe("formatMoM", () => {
+  it("uses two decimals", () => {
+    expect(formatMoM(2.553382873447088)).toBe("2.55x");
+    expect(formatMoM(0)).toBe("0.00x");
+  });
+});
+
+describe("formatDelta", () => {
+  it("signs changes explicitly, with no space before the unit", () => {
+    expect(formatDelta(2.06, 1, "pp")).toEqual({ text: "+2.1pp", direction: "up" });
+    expect(formatDelta(-0.123, 2, "x")).toEqual({ text: "\u22120.12x", direction: "down" });
+  });
+  it("treats anything that rounds to zero as flat and unsigned", () => {
+    expect(formatDelta(-0.004, 2, "x")).toEqual({ text: "0.00x", direction: "flat" });
+  });
+  it("returns null for non-finite input", () => {
+    expect(formatDelta(NaN, 1)).toBeNull();
   });
 });

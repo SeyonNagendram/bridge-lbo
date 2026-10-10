@@ -11,6 +11,7 @@ import {
   type LboResult,
   type ValidationError,
 } from "@/lib/lbo";
+import { dealSummary } from "@/lib/deal";
 import { formatInputValue, parseInputValue, stepInputValue } from "@/lib/format";
 import { InputPanel } from "./InputPanel";
 import { KpiTiles } from "./KpiTiles";
@@ -87,37 +88,54 @@ export function Calculator() {
   const stale = state.errors.length > 0;
 
   return (
-    // Mobile: one column in DOM order (KPIs, assumptions, sections).
-    // Desktop: assumptions move into a sticky left column; KPIs and sections stack on the right.
-    <div className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
-      <div className="min-w-0 lg:col-start-2 lg:row-start-1">
-        <KpiTiles result={state.result} />
-        {/* Always mounted so screen readers announce the message when it appears. */}
-        <p role="status">
-          {stale && (
-            <span className="mt-2 block text-[13px] text-negative">
-              Some inputs are invalid. Showing the last valid result.
-            </span>
+    <>
+      {/* The deal in one sentence, like a memo's opening line; follows the last valid result. */}
+      <div className="mb-8 border-b border-border pb-6">
+        <p className="max-w-[760px] text-[15px] leading-6 text-muted">
+          {dealSummary(state.result).map((segment, i) =>
+            segment.strong ? (
+              <span key={i} className="font-medium text-text">
+                {segment.text}
+              </span>
+            ) : (
+              segment.text
+            ),
           )}
         </p>
       </div>
 
-      <aside className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
-        <div className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto">
-          <InputPanel
-            drafts={state.drafts}
-            errors={state.errors}
-            onDraftChange={handleDraftChange}
-            onStep={handleStep}
-            onBlur={handleBlur}
-            onReset={handleReset}
-          />
+      {/* Mobile: one column in DOM order (KPIs, assumptions, sections).
+          Desktop: assumptions move into a sticky left column; KPIs and sections stack on the right. */}
+      <div className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
+          <KpiTiles result={state.result} />
+          {/* Always mounted so screen readers announce the message when it appears. */}
+          <p role="status">
+            {stale && (
+              <span className="mt-2 block text-[13px] text-negative">
+                Some inputs are invalid. Showing the last valid result.
+              </span>
+            )}
+          </p>
         </div>
-      </aside>
 
-      <div className="min-w-0 lg:col-start-2 lg:row-start-2">
-        <SourcesUses entry={state.result.entry} />
+        <aside className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <div className="lg:sticky lg:top-6">
+            <InputPanel
+              drafts={state.drafts}
+              errors={state.errors}
+              onDraftChange={handleDraftChange}
+              onStep={handleStep}
+              onBlur={handleBlur}
+              onReset={handleReset}
+            />
+          </div>
+        </aside>
+
+        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
+          <SourcesUses entry={state.result.entry} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

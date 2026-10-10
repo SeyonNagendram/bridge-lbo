@@ -30,7 +30,7 @@ Target audience: bankers, PE professionals and recruiters spending 30–90 secon
 | Calculation | **Pure TypeScript module** `lib/lbo/` with no React imports | testable, reusable, framework-agnostic |
 | Tests | Vitest | golden-value tests against my Excel |
 | Charts | **Hand-built SVG components, no chart library** | performance and full design control |
-| Font | Inter via `next/font`, `font-variant-numeric: tabular-nums` everywhere numbers appear | aligned figures |
+| Font | Inter via `next/font`, `font-variant-numeric: tabular-nums` everywhere numbers appear; Source Serif 4 (weight 600 only) for the page title and section headings (§11) | aligned figures |
 | Hosting | Vercel | |
 
 All calculation runs in the browser. Recalculation must feel instant (< 1 ms for the full model incl. the 25-cell grid).
@@ -209,8 +209,10 @@ Additional required tests:
 - Generous whitespace; 8px spacing grid.
 - Corner radius 6px on tiles and inputs, 0 on tables.
 - Numbers right-aligned, tabular figures, consistent decimals: €m to 1 decimal, multiples `8.0x`, percentages `20.6%`. Negative values in parentheses `(1.6)`, as in banking.
+  - *(Updated after Phase 1)* MoM always has two decimals (`2.55x`); entry/exit multiples and leverage keep one (`8.0x`).
+  - *(Updated after Phase 1)* No space between a number and its unit, in inputs and outputs alike: `8.0x`, `20.0%`.
 - Units in column headers or labels, never repeated in every cell.
-- Motion: only 150ms opacity/colour transitions; respect `prefers-reduced-motion`. No animated number counters.
+- Motion: only 150ms opacity/colour transitions; respect `prefers-reduced-motion`. No animated number counters. *(Exception added after Phase 1: the ~600ms change highlight in §11.)*
 
 **Tokens (CSS variables, light and dark)**
 | Token | Light | Dark |
@@ -227,7 +229,7 @@ Additional required tests:
 
 Dark mode follows the system setting, with a manual toggle in the header (choice remembered per browser).
 
-**Typography (Inter)**
+**Typography (Inter; Source Serif 4 for the page title and section headings, see §11)**
 - Page title 28/36, semibold
 - Section titles 13px, uppercase, letter-spacing 0.06em, muted
 - Body 14/22
@@ -278,3 +280,14 @@ Metadata and Open Graph image (1200×630, title + IRR of the base case on a clea
 - Works in current Chrome, Safari, Firefox; on a 375px-wide phone.
 - No NaN, Infinity or `undefined` reachable through any input combination.
 - No secrets in the repo (none should exist; confirm before the repo goes public).
+
+## 11. Refinements after Phase 1
+
+Added in the fix-and-refine pass between Phase 1 and Phase 2. They are part of the spec from here on, under the same §7 restraint: no gradients, no shadows, nothing decorative.
+
+6. **Live deal summary.** Under the title, one sentence that updates with the inputs, written like the first line of an investment memo, e.g. "Acquire at 8.0x EBITDA (€80.0m), funded 61% debt / 39% equity; exit after 5 years at 8.0x → 20.6% IRR, 2.55x MoM." Key figures in medium weight. While inputs are invalid it describes the last valid result. With zero leverage it reads "funded entirely with equity"; with a non-meaningful IRR it shows "n.m. IRR". Debt/equity percentages are whole numbers that always sum to 100. (Text built by `dealSummary` in `lib/deal.ts`, unit-tested.)
+7. **KPI hierarchy.** The IRR tile is the headline: twice the width of each other tile on desktop (`2fr 1fr 1fr 1fr`); mobile stays 2 × 2. Tiles are compact (12px side padding); figures share a baseline across tiles even when a label wraps.
+8. **Delta vs base case.** Under each KPI, a small line such as "+2.1pp vs base" (IRR), "+0.12x vs base" (MoM) or "+5.1 vs base" (€m tiles), with an explicit +/− sign rather than parentheses. Coloured by sign: `--positive` up, `--negative` down, muted when it rounds to zero. Hidden when the inputs equal the base case; the line keeps its height so the tiles never jump. Not shown when either IRR is n.m.
+9. **Capital structure bar** in Sources & Uses: one thin (8px) horizontal bar split into debt and equity, square ends, hairline outline, labelled "Debt 61%" / "Equity 39%". Not animated. Has a text alternative (`role="img"` + `aria-label`).
+10. **Typography.** Source Serif 4 via `next/font`, weight 600 only, for the page title and section headings (including the assumption group titles). Inputs, tables and all numbers stay in Inter with tabular figures.
+11. **Change highlighting.** When an output value changes, its cell or tile gets a faint accent tint (`--accent` at 12% over `--surface`) that fades out over about 600ms. Not on first load. Disabled under `prefers-reduced-motion`. No number counting animations.
