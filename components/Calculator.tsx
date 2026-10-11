@@ -15,6 +15,8 @@ import { dealSummary } from "@/lib/deal";
 import { formatInputValue, parseInputValue, stepInputValue } from "@/lib/format";
 import { InputPanel } from "./InputPanel";
 import { KpiTiles } from "./KpiTiles";
+import { ProjectionTable } from "./ProjectionTable";
+import { SensitivityGrid } from "./SensitivityGrid";
 import { SourcesUses } from "./SourcesUses";
 
 type Drafts = Record<InputKey, string>;
@@ -81,6 +83,17 @@ export function Calculator() {
     });
   }
 
+  // A sensitivity cell sets both multiples at once, written into the fields as if typed.
+  function handleApplyMultiples(entryMultiple: number, exitMultiple: number) {
+    setState((s) =>
+      withDrafts(s, {
+        ...s.drafts,
+        entryMultiple: formatInputValue(entryMultiple, INPUT_SPECS.entryMultiple),
+        exitMultiple: formatInputValue(exitMultiple, INPUT_SPECS.exitMultiple),
+      }),
+    );
+  }
+
   function handleReset() {
     setState(initialState());
   }
@@ -133,8 +146,11 @@ export function Calculator() {
           </div>
         </aside>
 
-        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
+        {/* Sections in §5 order (charts follow in Phase 3, between Sources & Uses and Sensitivity). */}
+        <div className="min-w-0 space-y-12 lg:col-start-2 lg:row-start-2">
           <SourcesUses entry={state.result.entry} />
+          <SensitivityGrid inputs={state.result.inputs} onApply={handleApplyMultiples} />
+          <ProjectionTable result={state.result} />
         </div>
       </div>
     </>
