@@ -1,9 +1,22 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
-import { sensitivityGrid, type LboInputs, type SensitivityCell } from "@/lib/lbo";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import type { LboInputs, SensitivityCell } from "@/lib/lbo";
 import { formatMoM, formatMultiple, formatPercent } from "@/lib/format";
-import { gridTones, isGridKey, metricValue, moveInGrid, type Metric, type Tone } from "@/lib/sensitivityView";
+import {
+  canShift,
+  gridKeyAction,
+  gridTones,
+  isGridKey,
+  metricValue,
+  selectedPosition,
+  windowGrid,
+  type Axis,
+  type Direction,
+  type GridAnchor,
+  type Metric,
+  type Tone,
+} from "@/lib/sensitivityView";
 import { sectionTitle } from "./styles";
 import { useFlash } from "./useFlash";
 
@@ -12,21 +25,15 @@ const METRICS: { value: Metric; label: string }[] = [
   { value: "mom", label: "MoM" },
 ];
 
-/** Strongest tint, as a share of the semantic colour over the surface. Low, so the scale stays muted. */
-const MAX_TINT = 18;
-
 function formatValue(cell: SensitivityCell, metric: Metric): string {
   const value = metricValue(cell, metric);
   if (value === null) return "n.m.";
   return metric === "irr" ? formatPercent(value) : formatMoM(value);
 }
 
-/** Muted diverging fill: green above the current case, red below, the plain surface at the centre. */
-function toneBackground(tone: Tone): string | undefined {
-  if (tone.direction === "flat") return undefined;
-  const colour = tone.direction === "up" ? "var(--positive)" : "var(--negative)";
-  const share = Math.round(tone.strength * MAX_TINT);
-  return `color-mix(in srgb, ${colour} ${share}%, var(--surface))`;
+/** Muted diverging fill against the grid's centre: .heat-up / .heat-down in globals.css, scaled by --tone. */
+function toneClass(tone: Tone): string {
+  return tone.direction === "flat" ? "bg-surface" : tone.direction === "up" ? "heat-up" : "heat-down";
 }
 
 interface CellProps {
@@ -35,43 +42,39 @@ interface CellProps {
   cell: SensitivityCell;
   metric: Metric;
   tone: Tone;
-  current: boolean;
+  /** The case currently in the inputs: outlined, never filled. */
+  selected: boolean;
   focusable: boolean;
-  onApply: (byKeyboard: boolean) => void;
+  onApply: () => void;
   onHot: () => void;
+  onFocus: () => void;
 }
 
-function GridCell({ pos, cell, metric, tone, current, focusable, onApply, onHot }: CellProps) {
+function GridCell({ pos, cell, metric, tone, selected, focusable, onApply, onHot, onFocus }: CellProps) {
   const text = formatValue(cell, metric);
   // Keyed on both metrics, so switching IRR ↔ MoM doesn't flash every cell; only model changes do.
   const ref = useFlash<HTMLTableCellElement>(`${cell.irr}|${cell.mom}`);
   const entry = formatMultiple(cell.entryMultiple);
   const exit = formatMultiple(cell.exitMultiple);
   const metricLabel = metric === "irr" ? "IRR" : "MoM";
-  const label = current
+  const label = selected
     ? `Current case: entry ${entry}, exit ${exit} (${metricLabel} ${text})`
     : `Apply entry ${entry}, exit ${exit} (${metricLabel} ${text})`;
 
   return (
-    <td
-      ref={ref}
-      className="p-0"
-      style={{ backgroundColor: toneBackground(tone) ?? "var(--surface)" }}
-    >
+    <td ref={ref} className={`p-0 ${toneClass(tone)}`} style={{ "--tone": tone.strength } as CSSProperties}>
       <button
         type="button"
         data-pos={pos}
         tabIndex={focusable ? 0 : -1}
         aria-label={label}
-        aria-current={current ? "true" : undefined}
-        // detail is 0 when the click comes from Enter / Space rather than a pointer.
-        onClick={(event) => onApply(event.detail === 0)}
+        aria-current={selected ? "true" : undefined}
+        onClick={onApply}
         onMouseEnter={onHot}
-        onFocus={onHot}
-        // The current case is outlined, never filled; the focus ring sits inside the cell so the
-        // scroll container can't clip it.
+        onFocus={onFocus}
+        // The focus ring sits inside the cell so the scroll container can't clip it.
         className={`block h-9 w-full px-1.5 text-right sm:px-3 focus-visible:-outline-offset-2 ${
-          current ? "outline-1 -outline-offset-1 outline-accent" : ""
+          selected ? "outline-1 -outline-offset-1 outline-accent" : ""
         }`}
       >
         {text}
@@ -80,26 +83,60 @@ function GridCell({ pos, cell, metric, tone, current, focusable, onApply, onHot 
   );
 }
 
-interface SensitivityGridProps {
-  inputs: LboInputs;
-  onApply: (entryMultiple: number, exitMultiple: number) => void;
+/** Chevron for the window controls; points the way the window moves. */
+function Chevron({ direction }: { direction: "up" | "down" | "left" | "right" }) {
+  const rotate = { up: "rotate-180", down: "", left: "rotate-90", right: "-rotate-90" }[direction];
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className={rotate}>
+      <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
+const shiftButton =
+  "flex h-6 w-6 items-center justify-center rounded-[6px] border border-border text-muted transition-colors duration-150 hover:text-text disabled:opacity-40 disabled:hover:text-muted";
+
+interface SensitivityGridProps {
+  /** The current case (last valid inputs). */
+  inputs: LboInputs;
+  /** Centre of the visible window; moves only on panel changes, Reset, window shifts or Re-centre. */
+  anchor: GridAnchor;
+  onApply: (entryMultiple: number, exitMultiple: number) => void;
+  onShift: (axis: Axis, direction: Direction) => void;
+  onRecentre: () => void;
+}
+
+export function SensitivityGrid({ inputs, anchor, onApply, onShift, onRecentre }: SensitivityGridProps) {
   const [metric, setMetric] = useState<Metric>("irr");
   // Cell whose row and column headers are highlighted (pointer or keyboard).
   const [hot, setHot] = useState<[number, number] | null>(null);
   // Roving tabindex: one cell in the tab order; arrow keys move between cells.
-  const [active, setActive] = useState<[number, number]>([2, 2]);
+  const [active, setActive] = useState<[number, number] | null>(null);
+  // A cell to focus once the next render is on screen (after the window has shifted).
+  const focusRequest = useRef<[number, number] | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
 
-  const grid = sensitivityGrid(inputs);
+  const grid = windowGrid(inputs, anchor);
   const tones = gridTones(grid, metric);
   const available = grid.cells.map((row) => row.map((cell) => cell !== null));
   const mid = Math.floor(grid.cells.length / 2);
+  const selected = selectedPosition(grid, inputs);
 
-  // If the active cell has become blank (inputs changed), fall back to the current case.
-  const [ar, ac] = available[active[0]]?.[active[1]] ? active : [mid, mid];
+  // Tab stop: the last cell moved to, else the current case, else the centre (if any is blank, the next).
+  const [ar, ac] =
+    [active, selected, [mid, mid] as [number, number]].find((p) => p && available[p[0]]?.[p[1]]) ?? [mid, mid];
+
+  useEffect(() => {
+    const request = focusRequest.current;
+    if (!request) return;
+    focusRequest.current = null;
+    const table = tableRef.current;
+    // The requested cell, or the tab stop if that position is blank in the new window.
+    (
+      table?.querySelector<HTMLButtonElement>(`[data-pos="${request[0]}-${request[1]}"]`) ??
+      table?.querySelector<HTMLButtonElement>('button[tabindex="0"]')
+    )?.focus();
+  });
 
   function focusCell(row: number, col: number) {
     setActive([row, col]);
@@ -109,17 +146,20 @@ export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
   function handleKeyDown(event: KeyboardEvent<HTMLTableElement>) {
     if (!isGridKey(event.key)) return;
     event.preventDefault();
-    const [row, col] = moveInGrid(available, [ar, ac], event.key);
-    focusCell(row, col);
+    const action = gridKeyAction(available, anchor, [ar, ac], event.key);
+    if (action.kind === "move") focusCell(...action.to);
+    if (action.kind === "shift") {
+      // At the edge: the window moves by one step and focus stays at the same position,
+      // which now shows the next multiple along.
+      onShift(action.axis, action.direction);
+      focusRequest.current = [ar, ac];
+    }
   }
 
-  function apply(cell: SensitivityCell, byKeyboard: boolean) {
+  function apply(cell: SensitivityCell, row: number, col: number) {
+    // The grid stays where it is; only the outline moves to this cell.
     onApply(cell.entryMultiple, cell.exitMultiple);
-    // The grid recentres on the applied case, so it is now the middle cell. Keyboard users follow it
-    // there; a pointer user's highlight stays under the pointer. Cells are keyed by position, so the
-    // middle button survives the re-render.
-    if (byKeyboard) focusCell(mid, mid);
-    else setActive([mid, mid]);
+    setActive([row, col]);
   }
 
   const headerTone = (isHot: boolean) =>
@@ -148,6 +188,61 @@ export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
         </div>
       </div>
 
+      {/* Window controls: each button moves the visible range by 0.5x and is disabled at the range limit. */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13px] text-muted">
+        <div role="group" aria-label="Entry multiple range" className="flex items-center gap-1">
+          <span className="mr-1">Entry</span>
+          <button
+            type="button"
+            className={shiftButton}
+            aria-label="Show lower entry multiples"
+            disabled={!canShift(anchor, "entry", -1)}
+            onClick={() => onShift("entry", -1)}
+          >
+            <Chevron direction="up" />
+          </button>
+          <button
+            type="button"
+            className={shiftButton}
+            aria-label="Show higher entry multiples"
+            disabled={!canShift(anchor, "entry", 1)}
+            onClick={() => onShift("entry", 1)}
+          >
+            <Chevron direction="down" />
+          </button>
+        </div>
+        {!selected && (
+          <button
+            type="button"
+            onClick={onRecentre}
+            className="word h-6 rounded-[6px] border border-border px-2 text-text transition-colors duration-150 hover:border-muted"
+          >
+            Re-centre
+          </button>
+        )}
+        <div role="group" aria-label="Exit multiple range" className="flex items-center gap-1">
+          <span className="mr-1">Exit</span>
+          <button
+            type="button"
+            className={shiftButton}
+            aria-label="Show lower exit multiples"
+            disabled={!canShift(anchor, "exit", -1)}
+            onClick={() => onShift("exit", -1)}
+          >
+            <Chevron direction="left" />
+          </button>
+          <button
+            type="button"
+            className={shiftButton}
+            aria-label="Show higher exit multiples"
+            disabled={!canShift(anchor, "exit", 1)}
+            onClick={() => onShift("exit", 1)}
+          >
+            <Chevron direction="right" />
+          </button>
+        </div>
+      </div>
+
       {/* Fits a 375px phone; scrolls inside its container rather than squeezing figures any further. */}
       <div className="overflow-x-auto">
         <table
@@ -160,8 +255,9 @@ export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
           className="w-full min-w-[320px] table-fixed border-collapse text-[13px]"
         >
           <caption className="sr-only">
-            {metric === "irr" ? "IRR" : "MoM"} by entry multiple (rows) and exit multiple (columns), centred on the
-            current case. Use the arrow keys to move between cells and Enter to apply a cell&apos;s multiples.
+            {metric === "irr" ? "IRR" : "MoM"} by entry multiple (rows) and exit multiple (columns). Shading compares
+            each cell with the centre of the grid; the current case is marked. Use the arrow keys to move between
+            cells (at the edge they move the range by 0.5x) and Enter to apply a cell&apos;s multiples.
           </caption>
           <thead>
             <tr className="border-b border-border">
@@ -183,7 +279,7 @@ export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
           </thead>
           <tbody>
             {grid.entryMultiples.map((entry, row) => (
-              // Keyed by position, not value: recentring changes every value but keeps the DOM (and focus).
+              // Keyed by position, not value: shifting the window changes every value but keeps the DOM (and focus).
               <tr key={row} className="border-b border-border">
                 <th scope="row" className={`py-2 pr-3 pl-1 text-left font-medium ${headerTone(hot?.[0] === row)}`}>
                   <span className="sr-only">Entry </span>
@@ -197,10 +293,15 @@ export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
                       cell={cell}
                       metric={metric}
                       tone={tones[row][col]!}
-                      current={row === mid && col === mid}
+                      selected={selected?.[0] === row && selected?.[1] === col}
                       focusable={row === ar && col === ac}
-                      onApply={(byKeyboard) => apply(cell, byKeyboard)}
+                      onApply={() => apply(cell, row, col)}
                       onHot={() => setHot([row, col])}
+                      // However focus arrives (click, Tab, script), that cell becomes the tab stop.
+                      onFocus={() => {
+                        setHot([row, col]);
+                        setActive([row, col]);
+                      }}
                     />
                   ) : (
                     // Outside the allowed input range: left blank (§4).
@@ -215,8 +316,9 @@ export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
         </table>
       </div>
       <p className="mt-3 text-[13px] text-muted">
-        Each cell <span className="word">re-runs</span> the full model with only the two multiples changed. Shading shows the change against the
-        current case (outlined): green higher, red lower. Select a cell to apply its multiples.
+        Each cell <span className="word">re-runs</span> the full model with only the two multiples changed. Shading
+        compares each cell with the centre of the grid: green higher, red lower. The outlined cell is the current
+        case; select another to apply its multiples.
       </p>
     </section>
   );

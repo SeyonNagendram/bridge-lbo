@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gridTones, moveInGrid } from "../sensitivityView";
+import { gridKeyAction, gridTones, moveInGrid } from "../sensitivityView";
 import { BASE_CASE, sensitivityGrid } from "../lbo";
 
 describe("gridTones", () => {
@@ -66,5 +66,30 @@ describe("moveInGrid", () => {
     expect(moveInGrid(holes, [2, 2], "Home")).toEqual([2, 1]);
     holes[0][2] = false;
     expect(moveInGrid(holes, [2, 2], "ArrowUp")).toEqual([2, 2]);
+  });
+});
+
+describe("gridKeyAction", () => {
+  const all = Array.from({ length: 5 }, () => Array(5).fill(true) as boolean[]);
+  const anchor = { entryMultiple: 8, exitMultiple: 8 };
+
+  it("moves inside the grid", () => {
+    expect(gridKeyAction(all, anchor, [2, 2], "ArrowLeft")).toEqual({ kind: "move", to: [2, 1] });
+  });
+
+  it("shifts the window at the edge, in the arrow's direction", () => {
+    expect(gridKeyAction(all, anchor, [0, 2], "ArrowUp")).toEqual({ kind: "shift", axis: "entry", direction: -1 });
+    expect(gridKeyAction(all, anchor, [4, 2], "ArrowDown")).toEqual({ kind: "shift", axis: "entry", direction: 1 });
+    expect(gridKeyAction(all, anchor, [2, 0], "ArrowLeft")).toEqual({ kind: "shift", axis: "exit", direction: -1 });
+    expect(gridKeyAction(all, anchor, [2, 4], "ArrowRight")).toEqual({ kind: "shift", axis: "exit", direction: 1 });
+  });
+
+  it("does nothing at the edge when the range limit is reached", () => {
+    expect(gridKeyAction(all, { entryMultiple: 8, exitMultiple: 19 }, [2, 4], "ArrowRight")).toEqual({ kind: "none" });
+    expect(gridKeyAction(all, { entryMultiple: 4, exitMultiple: 8 }, [0, 2], "ArrowUp")).toEqual({ kind: "none" });
+  });
+
+  it("never shifts on Home / End", () => {
+    expect(gridKeyAction(all, anchor, [2, 4], "End")).toEqual({ kind: "none" });
   });
 });

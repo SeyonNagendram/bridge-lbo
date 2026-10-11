@@ -1,102 +1,35 @@
 "use client";
 
 import { useState } from "react";
+import type { InputKey } from "@/lib/lbo";
 import {
-  BASE_CASE,
-  INPUT_KEYS,
-  INPUT_SPECS,
-  calculate,
-  type InputKey,
-  type LboInputs,
-  type LboResult,
-  type ValidationError,
-} from "@/lib/lbo";
+  applyMultiples,
+  editDraft,
+  initialState,
+  recentre,
+  shiftWindow,
+  stepDraft,
+  tidyDraft,
+} from "@/lib/calculatorState";
 import { dealSummary } from "@/lib/deal";
-import { formatInputValue, parseInputValue, stepInputValue } from "@/lib/format";
+import type { Axis, Direction } from "@/lib/sensitivityView";
 import { InputPanel } from "./InputPanel";
 import { KpiTiles } from "./KpiTiles";
 import { ProjectionTable } from "./ProjectionTable";
 import { SensitivityGrid } from "./SensitivityGrid";
 import { SourcesUses } from "./SourcesUses";
 
-type Drafts = Record<InputKey, string>;
-
-interface CalculatorState {
-  /** Exactly what is typed in each field, valid or not. */
-  drafts: Drafts;
-  errors: ValidationError[];
-  /** Last result from fully valid inputs; stays on screen while any field is invalid. */
-  result: LboResult;
-}
-
-function draftsFor(inputs: LboInputs): Drafts {
-  const drafts = {} as Drafts;
-  for (const key of INPUT_KEYS) drafts[key] = formatInputValue(inputs[key], INPUT_SPECS[key]);
-  return drafts;
-}
-
-function parseDrafts(drafts: Drafts): LboInputs {
-  const inputs = {} as LboInputs;
-  for (const key of INPUT_KEYS) inputs[key] = parseInputValue(drafts[key], INPUT_SPECS[key]);
-  return inputs;
-}
-
-function initialState(): CalculatorState {
-  const outcome = calculate(BASE_CASE);
-  if (!outcome.ok) throw new Error("Base case failed validation."); // guarded by the test suite
-  return { drafts: draftsFor(BASE_CASE), errors: [], result: outcome.result };
-}
-
-/** Recalculates from new drafts. The engine runs synchronously on every keystroke (well under 1 ms). */
-function withDrafts(state: CalculatorState, drafts: Drafts): CalculatorState {
-  const outcome = calculate(parseDrafts(drafts));
-  return outcome.ok
-    ? { drafts, errors: [], result: outcome.result }
-    : { drafts, errors: outcome.errors, result: state.result };
-}
-
 export function Calculator() {
+  // All state changes are pure functions in lib/calculatorState.ts (unit-tested); this only wires them up.
   const [state, setState] = useState(initialState);
 
-  function handleDraftChange(field: InputKey, text: string) {
-    setState((s) => withDrafts(s, { ...s.drafts, [field]: text }));
-  }
-
-  function handleStep(field: InputKey, steps: number) {
-    setState((s) => {
-      const spec = INPUT_SPECS[field];
-      const typed = parseInputValue(s.drafts[field], spec);
-      // Step from what is typed if it's a number, otherwise from the last valid value.
-      const from = Number.isFinite(typed) ? typed : s.result.inputs[field];
-      const next = stepInputValue(from, spec, steps);
-      return withDrafts(s, { ...s.drafts, [field]: formatInputValue(next, spec) });
-    });
-  }
-
-  // On leaving a field, tidy a valid entry into its standard form ("8" → "8.0").
-  function handleBlur(field: InputKey) {
-    setState((s) => {
-      if (s.errors.some((e) => e.field === field)) return s;
-      const spec = INPUT_SPECS[field];
-      const tidy = formatInputValue(parseInputValue(s.drafts[field], spec), spec);
-      return tidy === s.drafts[field] ? s : withDrafts(s, { ...s.drafts, [field]: tidy });
-    });
-  }
-
-  // A sensitivity cell sets both multiples at once, written into the fields as if typed.
-  function handleApplyMultiples(entryMultiple: number, exitMultiple: number) {
-    setState((s) =>
-      withDrafts(s, {
-        ...s.drafts,
-        entryMultiple: formatInputValue(entryMultiple, INPUT_SPECS.entryMultiple),
-        exitMultiple: formatInputValue(exitMultiple, INPUT_SPECS.exitMultiple),
-      }),
-    );
-  }
-
-  function handleReset() {
-    setState(initialState());
-  }
+  const handleDraftChange = (field: InputKey, text: string) => setState((s) => editDraft(s, field, text));
+  const handleStep = (field: InputKey, steps: number) => setState((s) => stepDraft(s, field, steps));
+  const handleBlur = (field: InputKey) => setState((s) => tidyDraft(s, field));
+  const handleReset = () => setState(initialState());
+  const handleApplyMultiples = (entry: number, exit: number) => setState((s) => applyMultiples(s, entry, exit));
+  const handleShift = (axis: Axis, direction: Direction) => setState((s) => shiftWindow(s, axis, direction));
+  const handleRecentre = () => setState(recentre);
 
   const stale = state.errors.length > 0;
 
@@ -149,7 +82,13 @@ export function Calculator() {
         {/* Sections in §5 order (charts follow in Phase 3, between Sources & Uses and Sensitivity). */}
         <div className="min-w-0 space-y-12 lg:col-start-2 lg:row-start-2">
           <SourcesUses entry={state.result.entry} />
-          <SensitivityGrid inputs={state.result.inputs} onApply={handleApplyMultiples} />
+          <SensitivityGrid
+            inputs={state.result.inputs}
+            anchor={state.anchor}
+            onApply={handleApplyMultiples}
+            onShift={handleShift}
+            onRecentre={handleRecentre}
+          />
           <ProjectionTable result={state.result} />
         </div>
       </div>

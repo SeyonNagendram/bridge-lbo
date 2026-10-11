@@ -13,6 +13,11 @@
   --input: #1d4ed8;
   --positive: #1f6f4a;
   --negative: #a3302b;
+  /* Sensitivity heat scale: a little more saturated than --positive / --negative, mixed into the
+     surface at up to --heat-max. Contrast with --text at full tint is checked in lib/__tests__/heat.test.ts. */
+  --heat-up: #1a8754;
+  --heat-down: #c4372e;
+  --heat-max: 32%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,6 +32,9 @@
     --input: #8ab4f8;
     --positive: #5fbf8f;
     --negative: #e58c85;
+    --heat-up: #3fcf8a;
+    --heat-down: #f2716a;
+    --heat-max: 40%;
   }
 }
 
@@ -41,6 +49,9 @@
   --input: #8ab4f8;
   --positive: #5fbf8f;
   --negative: #e58c85;
+  --heat-up: #3fcf8a;
+  --heat-down: #f2716a;
+  --heat-max: 40%;
 }
 
 @theme inline {
@@ -100,6 +111,20 @@ body {
 .word {
   white-space: nowrap;
   font-variant-numeric: normal;
+}
+
+/* Sensitivity cell fill: the heat colour mixed into the surface, scaled by --tone (0–1, set inline). */
+.heat-up,
+.heat-down {
+  background-color: color-mix(in srgb, var(--heat) calc(var(--heat-max) * var(--tone)), var(--surface));
+}
+
+.heat-up {
+  --heat: var(--heat-up);
+}
+
+.heat-down {
+  --heat: var(--heat-down);
 }
 
 /* Scroll container that fades its content at an edge only while there is more to scroll that way.
