@@ -5,11 +5,24 @@
 // stays at its real size; vertical positions are pixels.
 
 import type { LboResult } from "./lbo";
-import { formatMoney, formatMultiple, formatShare } from "./format";
+import { formatMoney, formatMultiple, formatShare, inBillions } from "./format";
 import { ZERO } from "./projection";
 
 /** Rounds to 2 decimals: far below a pixel, and a short, stable number in the markup. */
 export const coord = (value: number) => Math.round(value * 100) / 100;
+
+export type ChartUnit = "€m" | "€bn";
+
+/**
+ * A chart's unit: €m, or €bn once any figure would display as 1,000.0 or more, so value labels stay
+ * short enough for a 375px screen ("120.0" rather than "120,000.0"). One unit per chart, shown in its
+ * header, never in the labels.
+ */
+export function chartUnit(values: number[]): { unit: ChartUnit; label: (value: number) => string } {
+  return values.some(inBillions)
+    ? { unit: "€bn", label: (value) => formatMoney(value / 1000) }
+    : { unit: "€m", label: formatMoney };
+}
 
 // ── Debt paydown ─────────────────────────────────────────────────────────────
 
@@ -47,6 +60,7 @@ export interface DebtBar {
   cashLabel: string | null;
   /** Debt / EBITDA under the year label, e.g. 5.0x; an en dash once the debt is repaid. */
   leverageLabel: string;
+  /** Exact €m values. */
   debt: number;
   cash: number;
 }
@@ -57,6 +71,8 @@ export interface DebtChartGeometry {
   baseline: number;
   height: number;
   hasCash: boolean;
+  /** Unit of the value labels. */
+  unit: ChartUnit;
 }
 
 /** A segment of real size never disappears entirely, however small next to the largest bar. */
@@ -69,6 +85,7 @@ export function debtChart(result: LboResult): DebtChartGeometry {
     ...result.years.map((y) => ({ year: y.year, debt: y.debt, cash: y.cash, leverage: y.leverage })),
   ];
   const max = Math.max(...points.map((p) => p.debt + p.cash));
+  const { unit, label } = chartUnit(points.flatMap((p) => [p.debt, p.cash]));
   const scale = max > 0 ? plotHeight / max : 0;
   const baseline = top + plotHeight;
   const slot = 100 / points.length;
@@ -90,15 +107,15 @@ export function debtChart(result: LboResult): DebtChartGeometry {
       cashHeight,
       top: cash > 0 ? cashY : debtY,
       // An exact zero reads as an en dash, as in the projection table.
-      debtLabel: debt === 0 ? (cash > 0 ? null : ZERO) : formatMoney(debt),
-      cashLabel: cash > 0 ? formatMoney(cash) : null,
+      debtLabel: debt === 0 ? (cash > 0 ? null : ZERO) : label(debt),
+      cashLabel: cash > 0 ? label(cash) : null,
       leverageLabel: leverage === 0 ? ZERO : formatMultiple(leverage),
       debt,
       cash,
     };
   });
 
-  return { bars, baseline, height: baseline + bottom, hasCash: bars.some((b) => b.cash > 0) };
+  return { bars, baseline, height: baseline + bottom, hasCash: bars.some((b) => b.cash > 0), unit };
 }
 
 // ── Returns attribution ──────────────────────────────────────────────────────
@@ -130,6 +147,8 @@ export interface BridgeGeometry {
   valueCreated: number;
   /** false when value created is zero or negative (at display precision): shares read n.m. */
   sharesMeaningful: boolean;
+  /** Unit of the value labels. */
+  unit: ChartUnit;
 }
 
 /**
@@ -164,6 +183,7 @@ export function bridgeChart(result: LboResult): BridgeGeometry {
   // The exact running total equals exit.equity up to float noise; the total bar ends where the last part does.
   rows.push({ key: "equityAtExit", label: "Equity at exit", kind: "total", value: exit.equity, from: 0, to: running });
 
+  const { unit, label } = chartUnit(rows.map((r) => r.value));
   const ends = rows.flatMap((r) => [r.from, r.to]);
   const min = Math.min(0, ...ends);
   const max = Math.max(0, ...ends);
@@ -179,7 +199,7 @@ export function bridgeChart(result: LboResult): BridgeGeometry {
         kind: r.kind,
         value: r.value,
         // An exact zero reads as an en dash, as in the projection table.
-        text: r.value === 0 ? ZERO : formatMoney(r.value),
+        text: r.value === 0 ? ZERO : label(r.value),
         share,
         shareText: share === null ? null : sharesMeaningful ? formatShare(share) : "n.m.",
         start: x(r.from),
@@ -189,5 +209,6 @@ export function bridgeChart(result: LboResult): BridgeGeometry {
     zero: x(0),
     valueCreated,
     sharesMeaningful,
+    unit,
   };
 }

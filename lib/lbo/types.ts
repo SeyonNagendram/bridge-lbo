@@ -90,7 +90,7 @@ export interface ReturnsBridge {
 export type LboWarning =
   | { kind: "cashShortfall"; years: number[]; message: string }
   | { kind: "lowInterestCoverage"; years: number[]; message: string }
-  | { kind: "irrNotMeaningful"; message: string };
+  | { kind: "irrNotMeaningful"; years: number[]; message: string };
 
 export interface LboResult {
   inputs: LboInputs;

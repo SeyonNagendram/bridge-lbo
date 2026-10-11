@@ -2,7 +2,7 @@
 // summary and the base-case comparison. Pure functions, no React, unit-tested like the engine.
 
 import { BASE_CASE, INPUT_KEYS, type EntryValues, type LboInputs, type LboResult } from "./lbo";
-import { formatMoney, formatMoM, formatMultiple, formatPercent } from "./format";
+import { formatEuro, formatMoM, formatMultiple, formatPercent } from "./format";
 
 export interface FundingSplit {
   /** Exact shares of total sources (0–1), for drawing. */
@@ -30,6 +30,8 @@ export function isBaseCase(inputs: LboInputs): boolean {
 export interface SummarySegment {
   text: string;
   strong?: boolean;
+  /** What a screen reader says instead of `text`, where a symbol reads badly ("→"). */
+  spoken?: string;
 }
 
 /**
@@ -50,14 +52,14 @@ export function dealSummary(result: LboResult): SummarySegment[] {
     { text: "Acquire at " },
     { text: `${formatMultiple(inputs.entryMultiple)} EBITDA`, strong: true },
     { text: " (" },
-    { text: `€${formatMoney(entry.enterpriseValue)}m`, strong: true },
+    { text: formatEuro(entry.enterpriseValue), strong: true },
     { text: ")" },
     ...funding,
     { text: "; exit after " },
     { text: `${years} ${years === 1 ? "year" : "years"}`, strong: true },
     { text: " at " },
     { text: formatMultiple(inputs.exitMultiple), strong: true },
-    { text: "\u00a0→ " }, // nbsp: the arrow never starts a line
+    { text: "\u00a0→ ", spoken: ", for " }, // nbsp: the arrow never starts a line
     { text: `${returns.irr === null ? "n.m." : formatPercent(returns.irr)} IRR`, strong: true },
     { text: ", " },
     { text: `${formatMoM(returns.mom)} MoM`, strong: true },

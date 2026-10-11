@@ -94,6 +94,16 @@ body {
   outline-offset: 2px;
 }
 
+/* A focusable scroll container whose mask (.scroll-fade-x) would clip its own ring: the wrapper draws it. */
+.focus-ring-within > :focus-visible {
+  outline: none;
+}
+
+.focus-ring-within:has(> :focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Change highlight: a faint accent tint that fades back to the element's own background.
    Restarted from JS (components/useFlash.ts) whenever the displayed value changes. */
 @keyframes flash {

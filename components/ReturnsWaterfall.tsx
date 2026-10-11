@@ -2,7 +2,7 @@
 
 import type { LboResult } from "@/lib/lbo";
 import { bridgeChart, type BridgeKind } from "@/lib/charts";
-import { formatEuroMillions } from "@/lib/format";
+import { formatEuro } from "@/lib/format";
 import { ChartValue } from "./ChartValue";
 import { sectionTitle } from "./styles";
 import { useFlash } from "./useFlash";
@@ -21,7 +21,7 @@ const FILL: Record<BridgeKind, string> = {
 
 /** Value created in the note, live, with the change highlight. A minus, not parentheses, inside the note's own brackets. */
 function ValueCreated({ value }: { value: number }) {
-  const text = value < 0 && formatEuroMillions(value).startsWith("(") ? `\u2212${formatEuroMillions(-value)}` : formatEuroMillions(value);
+  const text = value < 0 && formatEuro(value).startsWith("(") ? `\u2212${formatEuro(-value)}` : formatEuro(value);
   const ref = useFlash<HTMLSpanElement>(text);
   return <span ref={ref}>{text}</span>;
 }
@@ -33,7 +33,7 @@ function ValueCreated({ value }: { value: number }) {
  * lib/charts.ts, each rounded on its own like the projection table; the bars use exact values.
  */
 export function ReturnsWaterfall({ result }: { result: LboResult }) {
-  const { steps, zero, valueCreated } = bridgeChart(result);
+  const { steps, zero, valueCreated, unit } = bridgeChart(result);
   const height = steps.length * ROW;
 
   return (
@@ -43,7 +43,7 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
           Returns attribution
         </h2>
         <p aria-hidden="true" className="text-[12px] text-muted">
-          €m
+          {unit}
         </p>
       </div>
 
@@ -124,11 +124,13 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
       {/* sr-only on the wrapper: a table ignores the 1px width and would widen the page. */}
       <div className="sr-only">
         <table>
-          <caption>Returns attribution: from equity invested to equity at exit, in € millions.</caption>
+          <caption>
+            Returns attribution: from equity invested to equity at exit, in {unit === "€bn" ? "€ billions" : "€ millions"}.
+          </caption>
           <thead>
             <tr>
               <th scope="col">Step</th>
-              <th scope="col">€m</th>
+              <th scope="col">{unit}</th>
               <th scope="col">Share of value created</th>
             </tr>
           </thead>

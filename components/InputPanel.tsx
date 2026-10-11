@@ -93,6 +93,17 @@ export function InputPanel({ drafts, errors, onDraftChange, onStep, onBlur, onRe
   // Collapsible on mobile only (open on first load); always expanded on desktop.
   const [open, setOpen] = useState(true);
   const bodyRef = useScrollFade<HTMLDivElement>();
+  // Confirms a reset to screen readers; every figure on the page changes, but silently otherwise.
+  const [resetNote, setResetNote] = useState("");
+  const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(resetTimer.current), []);
+
+  function reset() {
+    onReset();
+    clearTimeout(resetTimer.current);
+    setResetNote("Inputs reset to the base case.");
+    resetTimer.current = setTimeout(() => setResetNote(""), 3000);
+  }
 
   return (
     // Desktop: the header stays put and only the fields scroll, so the border and first field are
@@ -153,11 +164,14 @@ export function InputPanel({ drafts, errors, onDraftChange, onStep, onBlur, onRe
       <div className={`shrink-0 border-t border-border px-4 py-3 ${open ? "" : "hidden lg:block"}`}>
         <button
           type="button"
-          onClick={onReset}
+          onClick={reset}
           className="text-[13px] text-muted underline-offset-4 transition-colors duration-150 hover:text-text hover:underline"
         >
           Reset to base case
         </button>
+        <span role="status" className="sr-only">
+          {resetNote}
+        </span>
       </div>
     </section>
   );

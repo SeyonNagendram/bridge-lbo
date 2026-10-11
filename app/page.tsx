@@ -1,4 +1,6 @@
 import { Calculator } from "@/components/Calculator";
+import { Footer } from "@/components/Footer";
+import { Methodology } from "@/components/Methodology";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { APP_NAME } from "@/lib/site";
 
@@ -14,7 +16,13 @@ export default function Home() {
       </header>
       <main className="pt-3">
         <Calculator />
+        {/* Static text, rendered on the server: no JavaScript. On desktop it lines up with the results
+            column (340px panel + 32px gap). */}
+        <div className="mt-16 border-t border-border pt-8 lg:ml-[372px]">
+          <Methodology />
+        </div>
       </main>
+      <Footer />
     </div>
   );
 }

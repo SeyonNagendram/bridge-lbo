@@ -57,9 +57,11 @@ function GridCell({ pos, cell, metric, tone, selected, focusable, onApply, onHot
   const entry = formatMultiple(cell.entryMultiple);
   const exit = formatMultiple(cell.exitMultiple);
   const metricLabel = metric === "irr" ? "IRR" : "MoM";
+  // The visible figure comes first (WCAG 2.5.3, label in name), so a speech-control user can say
+  // "click 26.9%"; the multiples and the action follow.
   const label = selected
-    ? `Current case: entry ${entry}, exit ${exit} (${metricLabel} ${text})`
-    : `Apply entry ${entry}, exit ${exit} (${metricLabel} ${text})`;
+    ? `${text} ${metricLabel}, current case: entry ${entry}, exit ${exit}`
+    : `${text} ${metricLabel}: apply entry ${entry}, exit ${exit}`;
 
   return (
     // --tone as a 3-decimal string: the raw strength comes from IRR (Math.pow), which can differ in the

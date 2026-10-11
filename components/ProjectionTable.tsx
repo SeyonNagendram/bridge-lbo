@@ -21,6 +21,9 @@ function useScrollEdges<T extends HTMLElement>() {
       const { scrollLeft, scrollWidth, clientWidth } = element;
       element.toggleAttribute("data-scrolled", scrollLeft > 0);
       element.toggleAttribute("data-fade-right", scrollLeft + clientWidth < scrollWidth - 1);
+      // In the tab order only while there is something to scroll, so keyboard users can reach the
+      // hidden years with the arrow keys (Safari and Firefox don't focus scroll containers by themselves).
+      element.tabIndex = scrollWidth > clientWidth + 1 ? 0 : -1;
     };
     update();
     element.addEventListener("scroll", update, { passive: true });
@@ -61,46 +64,55 @@ export function ProjectionTable({ result }: { result: LboResult }) {
       <h2 id="projection-title" className={`${sectionTitle} mb-3`}>
         Projection
       </h2>
-      {/* Scrolls horizontally inside its own container; the page itself never does. */}
-      <div ref={scrollRef} className="group/scroll scroll-fade-x overflow-x-auto">
-        <table className="w-full border-collapse text-[13px]">
-          <caption className="sr-only">
-            Projection by year, Year 0 to Year {result.years.length}. Money in € millions; deductions in parentheses; a dash means exactly zero.
-          </caption>
-          <thead>
-            <tr className="border-b border-border">
-              <th scope="col" className={`${pinned} py-2 font-normal text-muted`}>
-                €m
-              </th>
-              {years.map((t) => (
-                <th key={t} scope="col" className="min-w-16 px-3 py-2 text-right font-medium whitespace-nowrap">
-                  Year {t}
+      {/* Scrolls horizontally inside its own container; the page itself never does. The wrapper draws
+          the focus ring, which the fade's mask would clip on the scroll container itself. */}
+      <div className="focus-ring-within">
+        <div
+          ref={scrollRef}
+          role="region"
+          aria-label="Projection table"
+          className="group/scroll scroll-fade-x overflow-x-auto"
+        >
+          <table className="w-full border-collapse text-[13px]">
+            <caption className="sr-only">
+              Projection by year, Year 0 to Year {result.years.length}. Money in € millions; deductions in parentheses; a
+              dash means exactly zero, and interest coverage shows a dash when there is no interest.
+            </caption>
+            <thead>
+              <tr className="border-b border-border">
+                <th scope="col" className={`${pinned} py-2 font-normal text-muted`}>
+                  €m
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              // A new block (balance sheet, credit statistics) gets extra space above, not a rule.
-              const padding = row.groupStart ? "pt-5 pb-1.5" : "py-1.5";
-              // Ratios are set apart from the € figures: italic, muted.
-              const tone = row.ratio ? "italic text-muted" : "";
-              return (
-                <tr key={row.key} className={row.subtotal ? "border-t border-border font-medium" : undefined}>
-                  <th
-                    scope="row"
-                    className={`${pinned} word ${padding} ${tone} ${row.subtotal ? "font-medium" : "font-normal"}`}
-                  >
-                    {row.label}
+                {years.map((t) => (
+                  <th key={t} scope="col" className="min-w-16 px-3 py-2 text-right font-medium whitespace-nowrap">
+                    Year {t}
                   </th>
-                  {row.cells.map((text, t) => (
-                    <FigureCell key={t} text={text} className={`${padding} ${tone}`} />
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                // A new block (balance sheet, credit statistics) gets extra space above, not a rule.
+                const padding = row.groupStart ? "pt-5 pb-1.5" : "py-1.5";
+                // Ratios are set apart from the € figures: italic, muted.
+                const tone = row.ratio ? "italic text-muted" : "";
+                return (
+                  <tr key={row.key} className={row.subtotal ? "border-t border-border font-medium" : undefined}>
+                    <th
+                      scope="row"
+                      className={`${pinned} word ${padding} ${tone} ${row.subtotal ? "font-medium" : "font-normal"}`}
+                    >
+                      {row.label}
+                    </th>
+                    {row.cells.map((text, t) => (
+                      <FigureCell key={t} text={text} className={`${padding} ${tone}`} />
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
       <p className="mt-3 text-[13px] text-muted">Figures may not sum due to rounding.</p>
     </section>

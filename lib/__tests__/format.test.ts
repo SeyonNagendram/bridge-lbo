@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   formatDelta,
-  formatEuroMillions,
+  formatEuro,
+  formatEuroDelta,
   formatInputValue,
   formatMoM,
   formatMoney,
@@ -101,15 +102,29 @@ describe("formatDelta", () => {
   });
 });
 
-describe("formatEuroMillions", () => {
+describe("formatEuro", () => {
   it("carries the unit in the figure, banking-style", () => {
-    expect(formatEuroMillions(31.6)).toBe("€31.6m");
-    expect(formatEuroMillions(80.69)).toBe("€80.7m");
-    expect(formatEuroMillions(1234.56)).toBe("€1,234.6m");
+    expect(formatEuro(31.6)).toBe("€31.6m");
+    expect(formatEuro(80.69)).toBe("€80.7m");
+    expect(formatEuro(999.94)).toBe("€999.9m");
+  });
+  it("switches to compact units above €999.9m, so large deals fit a tile", () => {
+    expect(formatEuro(999.95)).toBe("€1.0bn");
+    expect(formatEuro(1234.56)).toBe("€1.2bn");
+    expect(formatEuro(120_000)).toBe("€120.0bn");
+    expect(formatEuro(-5_240)).toBe("(€5.2bn)");
   });
   it("wraps negatives in parentheses, unit included", () => {
-    expect(formatEuroMillions(-5.24)).toBe("(€5.2m)");
-    expect(formatEuroMillions(-0.01)).toBe("€0.0m");
-    expect(formatEuroMillions(NaN)).toBe("n.m.");
+    expect(formatEuro(-5.24)).toBe("(€5.2m)");
+    expect(formatEuro(-0.01)).toBe("€0.0m");
+    expect(formatEuro(NaN)).toBe("n.m.");
+  });
+});
+
+describe("formatEuroDelta", () => {
+  it("uses the same units as the tile figures", () => {
+    expect(formatEuroDelta(5.06)).toEqual({ text: "+€5.1m", direction: "up" });
+    expect(formatEuroDelta(-1_234)).toEqual({ text: "\u2212€1.2bn", direction: "down" });
+    expect(formatEuroDelta(0.01)).toEqual({ text: "€0.0m", direction: "flat" });
   });
 });

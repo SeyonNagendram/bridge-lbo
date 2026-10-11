@@ -33,7 +33,7 @@ export function DebtChart({ result }: { result: LboResult }) {
               <LegendKey label="Cash" className="bg-positive" />
             </>
           )}
-          <span>€m, year end · leverage below</span>
+          <span>{chart.unit}, year end · leverage below</span>
         </p>
       </div>
 
@@ -108,7 +108,10 @@ export function DebtChart({ result }: { result: LboResult }) {
       {/* sr-only on the wrapper: a table ignores the 1px width and would widen the page. */}
       <div className="sr-only">
         <table>
-          <caption>Debt paydown: debt and cash at the end of each year, in € millions, with leverage.</caption>
+          <caption>
+            Debt paydown: debt and cash at the end of each year, in {chart.unit === "€bn" ? "€ billions" : "€ millions"}, with
+            leverage.
+          </caption>
           <thead>
             <tr>
               <th scope="col">Year</th>
@@ -121,8 +124,8 @@ export function DebtChart({ result }: { result: LboResult }) {
             {chart.bars.map((bar) => (
               <tr key={bar.year}>
                 <th scope="row">Year {bar.year}</th>
-                <td>{formatMoney(bar.debt)}</td>
-                <td>{formatMoney(bar.cash)}</td>
+                <td>{formatMoney(chart.unit === "€bn" ? bar.debt / 1000 : bar.debt)}</td>
+                <td>{formatMoney(chart.unit === "€bn" ? bar.cash / 1000 : bar.cash)}</td>
                 <td>{bar.leverageLabel}</td>
               </tr>
             ))}

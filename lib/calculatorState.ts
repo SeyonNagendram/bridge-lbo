@@ -38,11 +38,14 @@ function parseDrafts(drafts: Drafts): LboInputs {
   return inputs;
 }
 
-/** The base case, with the grid centred on it. Also what Reset returns to. */
-export function initialState(): CalculatorState {
-  const outcome = calculate(BASE_CASE);
-  if (!outcome.ok) throw new Error("Base case failed validation."); // guarded by the test suite
-  return { drafts: draftsFor(BASE_CASE), errors: [], result: outcome.result, anchor: anchorOf(BASE_CASE) };
+/**
+ * A scenario with the grid centred on it: the base case by default (also what Reset returns to), or
+ * one restored from a shared link. Inputs that fail validation fall back to the base case.
+ */
+export function initialState(inputs: LboInputs = BASE_CASE): CalculatorState {
+  const outcome = calculate(inputs);
+  if (!outcome.ok) return initialState(BASE_CASE); // the base case itself is guarded by the test suite
+  return { drafts: draftsFor(inputs), errors: [], result: outcome.result, anchor: anchorOf(inputs) };
 }
 
 /** Recalculates from new drafts. The engine runs synchronously on every keystroke (well under 1 ms). */

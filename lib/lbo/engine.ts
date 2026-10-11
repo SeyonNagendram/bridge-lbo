@@ -151,7 +151,8 @@ export function runLbo(inputs: LboInputs): LboResult {
   if (!irrMeaningful) {
     warnings.push({
       kind: "irrNotMeaningful",
-      message: "Equity value at exit is zero or negative, so IRR is not meaningful (n.m.).",
+      years: [N],
+      message: `Equity value at exit (Year ${N}) is zero or negative, so IRR is not meaningful (n.m.).`,
     });
   }
 

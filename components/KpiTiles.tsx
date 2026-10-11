@@ -1,6 +1,8 @@
+import { Fragment } from "react";
 import { BASE_CASE, runLbo, type LboResult } from "@/lib/lbo";
 import { isBaseCase } from "@/lib/deal";
-import { formatDelta, formatEuroMillions, formatMoM, formatMultiple, formatPercent, type Delta } from "@/lib/format";
+import { formatDelta, formatEuro, formatEuroDelta, formatMoM, formatMultiple, formatPercent, type Delta } from "@/lib/format";
+import { warningLines } from "@/lib/warnings";
 import { sectionTitle } from "./styles";
 import { useFlash } from "./useFlash";
 
@@ -26,24 +28,31 @@ interface TileProps {
   note?: string;
 }
 
+/** Figure size: one step smaller for an unusually long figure (an extreme case), so it never overflows a phone-width tile. */
+function figureClass(figure: string, headline: boolean): string {
+  if (headline) {
+    // 32px below 640px so a figure like (12.3%) fits a half-width phone tile; 40px per §7 above.
+    const phone = figure.length > 7 ? "text-[24px]" : "text-[32px]";
+    return `block ${phone} leading-10 font-semibold whitespace-nowrap text-accent sm:text-[40px] sm:leading-[44px]`;
+  }
+  return `block ${figure.length > 9 ? "text-[20px]" : "text-[24px]"} leading-8 font-semibold whitespace-nowrap`;
+}
+
+/** The delta as read aloud: "pp" and "vs" spelled out. */
+function spokenDelta(delta: Delta): string {
+  return `${delta.text.replace(/pp$/, " percentage points")} versus base case`;
+}
+
 function Tile({ label, figure, delta, baseCase, neutral = false, headline = false, note }: TileProps) {
   const ref = useFlash<HTMLDivElement>(figure);
+  const deltaText = baseCase ? "Base case" : delta ? `${delta.text} vs base` : null;
   return (
     <div ref={ref} className="flex flex-col rounded-[6px] border border-border bg-surface px-3 pt-2 pb-2.5">
       {/* Labels never wrap; the desktop grid sizes the small tiles to fit them (see KpiTiles). */}
       <dt className="text-[13px] leading-5 whitespace-nowrap text-muted">{label}</dt>
       {/* mt-auto: figures share a baseline across tiles even if a note makes one taller. */}
       <dd className="mt-auto pt-1">
-        <span
-          className={
-            headline
-              ? // 32px below 640px so a figure like (12.3%) fits a half-width phone tile; 40px per §7 above.
-                "block text-[32px] leading-10 font-semibold text-accent sm:text-[40px] sm:leading-[44px]"
-              : "block text-[24px] leading-8 font-semibold"
-          }
-        >
-          {figure}
-        </span>
+        <span className={figureClass(figure, headline)}>{figure}</span>
         {note && <span className="block text-[12px] leading-4 text-muted">{note}</span>}
         {/* The line is always present, so tiles don't change height when deltas appear. */}
         <span
@@ -51,9 +60,62 @@ function Tile({ label, figure, delta, baseCase, neutral = false, headline = fals
             delta && !neutral ? DELTA_COLOUR[delta.direction] : "text-muted"
           }`}
         >
-          {baseCase ? "Base case" : delta ? `${delta.text} vs base` : "\u00a0"}
+          {deltaText === null ? (
+            "\u00a0"
+          ) : (
+            <>
+              <span aria-hidden="true">{deltaText}</span>
+              <span className="sr-only">{!baseCase && delta ? spokenDelta(delta) : deltaText}</span>
+            </>
+          )}
         </span>
       </dd>
+    </div>
+  );
+}
+
+/** Small warning sign in --negative beside the warnings line; the text carries the meaning. */
+function WarningIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+      className="mt-[3px] shrink-0 text-negative"
+    >
+      <path d="M8 2.5 14 13H2L8 2.5Z" strokeLinejoin="round" />
+      <path d="M8 6.5v3" strokeLinecap="round" />
+      <circle cx="8" cy="11.25" r="0.4" fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * Cash shortfall, low interest coverage and n.m. IRR, each naming its years, as one calm line under
+ * the tiles. The live region is always mounted so a screen reader announces a warning when it appears.
+ */
+function Warnings({ lines }: { lines: string[] }) {
+  return (
+    <div role="status">
+      {lines.length > 0 && (
+        <p className="mt-2 flex gap-2 text-[13px] leading-5 text-muted">
+          <WarningIcon />
+          <span>
+            <span className="sr-only">{lines.length === 1 ? "Warning: " : "Warnings: "}</span>
+            {lines.map((line, i) => (
+              <Fragment key={line}>
+                {i > 0 && <span aria-hidden="true"> · </span>}
+                {i > 0 && <span className="sr-only">; </span>}
+                {line}
+              </Fragment>
+            ))}
+          </span>
+        </p>
+      )}
     </div>
   );
 }
@@ -103,15 +165,15 @@ export function KpiTiles({ result }: { result: LboResult }) {
         />
         <Tile
           label="Equity invested"
-          figure={formatEuroMillions(entry.equity)}
+          figure={formatEuro(entry.equity)}
           neutral
-          delta={showDeltas ? formatDelta(entry.equity - BASE.entry.equity, 1, "m", "€") : null}
+          delta={showDeltas ? formatEuroDelta(entry.equity - BASE.entry.equity) : null}
           baseCase={baseCase}
         />
         <Tile
           label="Equity at exit"
-          figure={formatEuroMillions(exit.equity)}
-          delta={showDeltas ? formatDelta(exit.equity - BASE.exit.equity, 1, "m", "€") : null}
+          figure={formatEuro(exit.equity)}
+          delta={showDeltas ? formatEuroDelta(exit.equity - BASE.exit.equity) : null}
           baseCase={baseCase}
         />
       </dl>
@@ -121,7 +183,9 @@ export function KpiTiles({ result }: { result: LboResult }) {
         <span className="sr-only">, </span>
         <span className="word">Year-1</span> interest coverage{" "}
         <LineFigure value={coverageYear1 === null ? "—" : formatMultiple(coverageYear1)} />
+        {coverageYear1 === null && <span className="sr-only">(no interest)</span>}
       </p>
+      <Warnings lines={warningLines(result)} />
     </section>
   );
 }

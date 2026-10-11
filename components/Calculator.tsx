@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { InputKey } from "@/lib/lbo";
 import {
   applyMultiples,
@@ -11,8 +11,10 @@ import {
   stepDraft,
   tidyDraft,
 } from "@/lib/calculatorState";
-import { dealSummary } from "@/lib/deal";
+import { dealSummary, isBaseCase } from "@/lib/deal";
+import { inputsFromQuery, mergeScenarioQuery } from "@/lib/scenarioUrl";
 import type { Axis, Direction } from "@/lib/sensitivityView";
+import { CopyLink } from "./CopyLink";
 import { DebtChart } from "./DebtChart";
 import { InputPanel } from "./InputPanel";
 import { KpiTiles } from "./KpiTiles";
@@ -21,9 +23,45 @@ import { ReturnsWaterfall } from "./ReturnsWaterfall";
 import { SensitivityGrid } from "./SensitivityGrid";
 import { SourcesUses } from "./SourcesUses";
 
+/** How long the address bar waits for typing to pause before it follows the inputs. */
+const URL_DELAY_MS = 300;
+
+/** The page's own URL with the scenario in the query string, keeping any other parameters and the hash. */
+function scenarioUrl(inputs: Parameters<typeof mergeScenarioQuery>[1]): string {
+  const { origin, pathname, search, hash } = window.location;
+  return `${origin}${pathname}${mergeScenarioQuery(search, inputs)}${hash}`;
+}
+
 export function Calculator() {
   // All state changes are pure functions in lib/calculatorState.ts (unit-tested); this only wires them up.
   const [state, setState] = useState(initialState);
+  // Bumped once when a shared scenario is restored: remounts the outputs so they open on it without
+  // the change highlight (which is for changes the reader makes, not for the page loading).
+  const [restored, setRestored] = useState(0);
+  const urlReady = useRef(false);
+
+  // Shared scenario: the static page is rendered for the base case, so the query string can only be
+  // read after hydration. Values that are missing or invalid fall back to the base case (lib/scenarioUrl.ts).
+  useEffect(() => {
+    const inputs = inputsFromQuery(window.location.search);
+    urlReady.current = true;
+    if (isBaseCase(inputs)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off sync from the URL, which the server can't see
+    setState(initialState(inputs));
+    setRestored(1);
+  }, []);
+
+  // The address bar follows the inputs (the last valid result) once typing pauses: replaceState, so
+  // no navigation, no history entry per keystroke, and no re-render.
+  const inputs = state.result.inputs;
+  useEffect(() => {
+    if (!urlReady.current) return;
+    const timer = setTimeout(() => {
+      const url = scenarioUrl(inputs);
+      if (url !== window.location.href) window.history.replaceState(null, "", url);
+    }, URL_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [inputs]);
 
   const handleDraftChange = (field: InputKey, text: string) => setState((s) => editDraft(s, field, text));
   const handleStep = (field: InputKey, steps: number) => setState((s) => stepDraft(s, field, steps));
@@ -38,11 +76,16 @@ export function Calculator() {
   return (
     <>
       {/* The deal in one sentence, like a memo's opening line; follows the last valid result. */}
-      <div className="mb-8 border-b border-border pb-6">
+      <div className="mb-8 flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         {/* ~70ch and text-wrap: pretty, so the sentence breaks at natural points without orphans. */}
         <p className="max-w-[70ch] text-[15px] leading-6 text-pretty text-muted">
           {dealSummary(state.result).map((segment, i) =>
-            segment.strong ? (
+            segment.spoken ? (
+              <span key={i}>
+                <span aria-hidden="true">{segment.text}</span>
+                <span className="sr-only">{segment.spoken}</span>
+              </span>
+            ) : segment.strong ? (
               <span key={i} className="font-medium text-text">
                 {segment.text}
               </span>
@@ -51,11 +94,12 @@ export function Calculator() {
             ),
           )}
         </p>
+        <CopyLink link={() => scenarioUrl(state.result.inputs)} />
       </div>
 
       {/* Mobile: one column in DOM order (KPIs, assumptions, sections).
           Desktop: assumptions move into a sticky left column; KPIs and sections stack on the right. */}
-      <div className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
+      <div key={restored} className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
         <div className="min-w-0 lg:col-start-2 lg:row-start-1">
           <KpiTiles result={state.result} />
           {/* Always mounted so screen readers announce the message when it appears. */}

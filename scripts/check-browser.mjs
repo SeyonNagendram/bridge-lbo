@@ -303,11 +303,85 @@ async function mobile(page, where) {
   await toggle.click();
   expectEqual(where, "assumptions collapse", await toggle.getAttribute("aria-expanded"), "false");
 
-  const table = page.locator("#projection-title + div");
+  const table = page.locator('#projection-title + div > [role="region"]');
   expectEqual(where, "projection fade while more to scroll", await table.evaluate((el) => el.hasAttribute("data-fade-right")), true);
   await table.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
   await page.waitForTimeout(200);
   expectEqual(where, "projection fade gone at the end", await table.evaluate((el) => el.hasAttribute("data-fade-right")), false);
+}
+
+/** Shareable scenarios: the address bar follows the inputs, Copy link, warnings line. */
+async function urlState(page, context, where) {
+  const search = () => page.evaluate(() => window.location.search);
+  await page.locator("#input-entryMultiple").fill("9");
+  await page.locator("#input-holdingPeriod").fill("7");
+  await page.waitForTimeout(600); // the debounce
+  expectEqual(where, "URL follows the inputs", await search(), "?entry=9&yrs=7");
+
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Copy link" }).click();
+  await page.getByText("Link copied").waitFor({ timeout: 2000 }).catch(() => fail(where, 'Copy link: no "Link copied"'));
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expectEqual(where, "copied link", new URL(copied).search, "?entry=9&yrs=7");
+
+  await page.locator("#input-entryMultiple").fill("2"); // invalid: the URL keeps the last valid scenario
+  await page.waitForTimeout(600);
+  expectEqual(where, "URL ignores invalid input", await search(), "?entry=9&yrs=7");
+
+  for (const [id, value] of [["ebitdaMargin", "5"], ["revenueGrowth", "-10"], ["entryMultiple", "8"], ["leverage", "7.5"], ["interestRate", "20"], ["exitMultiple", "3"]]) {
+    await page.locator(`#input-${id}`).fill(value);
+  }
+  const warnings = await page.locator('section[aria-labelledby="returns-title"] [role="status"]').innerText();
+  for (const expected of ["Cash shortfall in Years\u00a01\u20137", "Interest coverage below 2.0x in Years\u00a01\u20137", "IRR not meaningful", "(Year\u00a07)"]) {
+    if (!warnings.includes(expected)) fail(where, `warnings line: missing "${expected}" in "${warnings}"`);
+  }
+
+  await page.getByRole("button", { name: "Reset to base case" }).click();
+  await page.waitForTimeout(600);
+  expectEqual(where, "URL is clean for the base case", await search(), "");
+  expectEqual(where, "no warnings in the base case", (await page.locator('section[aria-labelledby="returns-title"] [role="status"]').innerText()).trim(), "");
+}
+
+// Edge states and large deals (Phase 4), opened by URL: inputs restored, every section on screen, nothing
+// overflowing, no chart labels colliding. `fields` are what the inputs must then show.
+const EDGE_URLS = [
+  { query: "?yrs=3", fields: { holdingPeriod: "3" } },
+  { query: "?yrs=7", fields: { holdingPeriod: "7" } },
+  { query: "?lev=0", fields: { leverage: "0.0" } },
+  { query: "?growth=-10", fields: { revenueGrowth: "-10.0" } },
+  { query: "?margin=40&lev=1&yrs=7", fields: { leverage: "1.0" } }, // debt repaid early
+  { query: "?rev=10000", fields: { revenue0: "10000.0" }, tiles: ["€6.3bn", "€16.1bn"] },
+  { query: "?rev=10000&margin=60&entry=20&growth=30&exit=20&yrs=7", fields: { revenue0: "10000.0" } },
+  { query: "?margin=5&lev=7.5&growth=-10&rate=20&exit=3&yrs=7", fields: { exitMultiple: "3.0" } }, // everything going wrong
+  { query: "?rev=abc&lev=9&yrs=12&entry=2&utm_source=x", fields: { revenue0: "50.0", leverage: "5.0", holdingPeriod: "5" }, cleaned: "?utm_source=x" },
+];
+
+async function edgeState(page, where, { query, fields, tiles, cleaned }) {
+  for (const [id, value] of Object.entries(fields)) {
+    expectEqual(where, `${query}: ${id} restored`, await page.locator(`#input-${id}`).inputValue(), value);
+  }
+  const layout = await page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    // A tile figure wider than its tile.
+    tiles: [...document.querySelectorAll('section[aria-labelledby="returns-title"] dd > span:first-child')].map((s) => ({
+      text: s.textContent,
+      fits: s.scrollWidth <= s.parentElement.clientWidth,
+    })),
+    sections: ["returns", "sources-uses", "debt", "attribution", "sensitivity", "projection", "methodology"].filter(
+      (id) => !document.getElementById(`${id}-title`)?.closest("section")?.getBoundingClientRect().height,
+    ),
+    text: document.body.innerText,
+  }));
+  if (layout.overflow > 0) fail(where, `${query}: page scrolls horizontally by ${layout.overflow}px`);
+  for (const tile of layout.tiles) if (!tile.fits) fail(where, `${query}: tile figure "${tile.text}" overflows its tile`);
+  if (layout.sections.length) fail(where, `${query}: sections not rendered: ${layout.sections.join(", ")}`);
+  if (/NaN|Infinity|undefined/.test(layout.text)) fail(where, `${query}: page text contains NaN, Infinity or undefined`);
+  if (tiles) expectEqual(where, `${query}: compact tile units`, layout.tiles.slice(2).map((t) => t.text), tiles);
+  for (const problem of await chartLabelProblems(page)) fail(where, `${query}: chart labels: ${problem}`);
+  if (cleaned !== undefined) {
+    await page.waitForTimeout(600);
+    expectEqual(where, `${query}: invalid values dropped from the URL`, await page.evaluate(() => window.location.search), cleaned);
+  }
 }
 
 // ── Run ──────────────────────────────────────────────────────────────────────
@@ -353,7 +427,18 @@ try {
           await page.getByRole("button", { name: "Reset to base case" }).click();
         }
         if (isMobile) await mobile(page, where);
-        else if (!dark) await interactions(page, where);
+        else if (!dark) {
+          await interactions(page, where);
+          await urlState(page, context, where);
+        }
+        await context.close();
+      }
+    }
+    for (const isMobile of [false, true]) {
+      for (const edge of EDGE_URLS) {
+        const where = `${name} light ${isMobile ? "375px" : "1280px"} ${edge.query}`;
+        const { page, context } = await openPage(browser, `${target.url}${edge.query}`, where, { mobile: isMobile });
+        await edgeState(page, where, edge);
         await context.close();
       }
     }
@@ -381,4 +466,6 @@ if (problems.length > 0) {
   console.log(`\nFAIL: ${problems.length} problem(s)\n${problems.map((p) => `  ${p}`).join("\n")}`);
   process.exit(1);
 }
-console.log("PASS: 8 page loads (prod + dev × light + dark × desktop + phone), no console errors or warnings, interactions and charts OK");
+console.log(
+  `PASS: ${8 + 4 * EDGE_URLS.length} page loads (prod + dev × light + dark × desktop + phone, plus ${EDGE_URLS.length} edge-state URLs × desktop + phone), no console errors or warnings; interactions, charts, URL state and edge states OK`,
+);

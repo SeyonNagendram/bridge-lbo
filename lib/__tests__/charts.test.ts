@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bridgeChart, debtChart, DEBT_CHART } from "../charts";
-import { formatEuroMillions, formatMoney, formatShare } from "../format";
+import { formatEuro, formatMoney, formatShare } from "../format";
 import { projectionRows } from "../projection";
 import { BASE_CASE, runLbo, type LboResult } from "../lbo";
 import { randomValidInputs, seededRandom } from "../lbo/__tests__/helpers";
@@ -91,12 +91,16 @@ describe("bridgeChart", () => {
 
   it("shows the totals exactly as the KPI tiles and rounds every step on its own (1,000 random cases)", () => {
     for (const result of [base, ...randomResults(3, 1000)]) {
-      const steps = bridgeChart(result).steps;
+      const { steps, unit } = bridgeChart(result);
+      const scale = unit === "€bn" ? 1000 : 1;
       const first = steps[0];
       const last = steps[steps.length - 1];
-      expect(parseTenths(first.text)).toBe(parseTenths(formatEuroMillions(result.entry.equity)));
-      expect(parseTenths(last.text)).toBe(parseTenths(formatEuroMillions(result.exit.equity)));
-      for (const s of steps) expect(s.text).toBe(s.value === 0 ? "–" : formatMoney(s.value));
+      // The tiles carry their own unit (€m, or €bn from €1,000m); where both are in the same unit the figures match.
+      for (const [step, value] of [[first, result.entry.equity], [last, result.exit.equity]] as const) {
+        const tile = formatEuro(value);
+        if (tile.includes(unit === "€bn" ? "bn" : "m")) expect(parseTenths(step.text)).toBe(parseTenths(tile.replace(/[€mbn]/g, "")));
+      }
+      for (const s of steps) expect(s.text).toBe(s.value === 0 ? "–" : formatMoney(s.value / scale));
       // The exact parts foot; the displayed ones may miss by rounding alone: ≤ 0.05 per figure, so at
       // most 0.1 per part plus 0.1 for the two totals (shown at one decimal).
       const parts = steps.slice(1, -1);

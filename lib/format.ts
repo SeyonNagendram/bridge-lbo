@@ -30,9 +30,20 @@ export function formatMoney(value: number): string {
   return withParens(value, "");
 }
 
-/** €m amount with the unit in the figure, banking-style, e.g. €31.6m, (€5.2m). For standalone figures (KPI tiles). */
-export function formatEuroMillions(value: number): string {
-  return withParens(value, "m", 1, "€");
+/** Above this (as displayed, €m) a standalone figure switches to billions: €999.9m, then €1.0bn. */
+const BILLION_FROM = 999.95;
+
+/** True when |value| (€m) would display as 1,000.0 or more, so the figure reads better in billions. */
+export function inBillions(value: number): boolean {
+  return Math.abs(value) >= BILLION_FROM;
+}
+
+/**
+ * € amount with the unit in the figure, banking-style, for standalone figures (KPI tiles, the deal
+ * summary): €31.6m, (€5.2m); from €1,000m in compact units, €1.2bn, so large deals fit a phone-width tile.
+ */
+export function formatEuro(value: number): string {
+  return inBillions(value) ? withParens(value / 1000, "bn", 1, "€") : withParens(value, "m", 1, "€");
 }
 
 /** Multiple, e.g. 8.0x, (0.5x). Entry/exit multiples and leverage use one decimal. */
@@ -80,6 +91,11 @@ export function formatDelta(value: number, decimals: number, suffix = "", prefix
   const text = `${prefix}${fixed(Math.abs(value), decimals)}${suffix}`;
   if (fixed(Math.abs(value), decimals) === fixed(0, decimals)) return { text, direction: "flat" };
   return value > 0 ? { text: `+${text}`, direction: "up" } : { text: `\u2212${text}`, direction: "down" };
+}
+
+/** A € change with an explicit sign, in the same units as formatEuro: +€5.1m, −€1.2bn. */
+export function formatEuroDelta(value: number): Delta | null {
+  return inBillions(value) ? formatDelta(value / 1000, 1, "bn", "€") : formatDelta(value, 1, "m", "€");
 }
 
 // ── Input fields ─────────────────────────────────────────────────────────────
