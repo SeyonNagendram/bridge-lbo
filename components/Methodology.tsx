@@ -37,7 +37,7 @@ export function Methodology() {
 
       <h3 className={subheading}>What an LBO is</h3>
       <p>
-        A leveraged buyout (LBO) is the purchase of a company paid for mostly with borrowed money. The buyer, usually a
+        A leveraged buyout (LBO) is the purchase of a company paid for largely with borrowed money. The buyer, usually a
         private equity fund, puts in a smaller amount of its own money as equity. While the fund owns the company, the
         company&rsquo;s cash flow pays down the debt, so a growing share of the company&rsquo;s value belongs to the
         equity. When the company is sold, the remaining debt is repaid and everything left over goes to the fund.
@@ -69,8 +69,9 @@ export function Methodology() {
             Revenue grows at a constant rate. EBITDA, D&amp;A and capex are fixed percentages of revenue. Net working
             capital (NWC: inventory and receivables minus payables) ties up a share of each year&rsquo;s increase in
             revenue. Interest is charged on the debt at the start of the year, so it doesn&rsquo;t depend on that
-            year&rsquo;s repayment and the model has no circular reference. Tax is only paid on a profit; a loss
-            doesn&rsquo;t create a tax refund.
+            year&rsquo;s repayment and the model has no circular reference. Using the opening balance slightly
+            overstates interest when debt is falling, so returns are slightly conservative. Tax is only paid on a
+            profit; a loss doesn&rsquo;t create a tax refund.
           </p>
           <Formulas
             lines={[
@@ -112,8 +113,9 @@ export function Methodology() {
         </Step>
         <Step title="5. Credit statistics">
           <p>
-            Leverage shows how many years of EBITDA the debt amounts to; interest coverage shows how many times EBITDA
-            covers the interest. The model shows a warning for any year with coverage below 2.0x.
+            Leverage is debt as a multiple of EBITDA, the standard measure lenders use to size and limit debt.
+            Interest coverage shows how many times EBITDA covers the interest. The model shows a warning for any year
+            with coverage below 2.0x, a simple rule-of-thumb threshold used in this tool.
           </p>
           <Formulas lines={["Leverage(t) = Debt(t) ÷ EBITDA(t)", "Interest coverage(t) = EBITDA(t) ÷ Interest(t)"]} />
         </Step>
@@ -121,6 +123,8 @@ export function Methodology() {
           <p>
             The gain from equity invested to equity at exit is split into where it came from: higher EBITDA, a higher
             exit multiple, debt repaid, cash built up, minus the fees. The parts add up exactly to the total gain.
+            This split is one common convention: if the order were reversed, measuring multiple expansion on Year 0
+            EBITDA first, the split between EBITDA growth and multiple expansion would change slightly.
           </p>
           <Formulas
             lines={[
@@ -154,6 +158,11 @@ export function Methodology() {
         </li>
         <li>Transaction fees are paid entirely with equity.</li>
         <li>No management equity: the fund owns all of the equity.</li>
+        <li>No tax loss carry-forwards: a loss in one year doesn&rsquo;t reduce tax in later years.</li>
+        <li>
+          Cash shortfalls are funded with extra debt at the same interest rate, like drawing on a revolving credit
+          facility.
+        </li>
       </ul>
 
       <h3 className={subheading}>Colours</h3>

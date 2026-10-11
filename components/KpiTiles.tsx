@@ -25,7 +25,6 @@ interface TileProps {
   /** Deltas are coloured by meaning (up = good news). Neutral keeps them grey: a bigger cheque is not good news. */
   neutral?: boolean;
   headline?: boolean;
-  note?: string;
 }
 
 /** Figure size: one step smaller for an unusually long figure (an extreme case), so it never overflows a phone-width tile. */
@@ -43,17 +42,16 @@ function spokenDelta(delta: Delta): string {
   return `${delta.text.replace(/pp$/, " percentage points")} versus base case`;
 }
 
-function Tile({ label, figure, delta, baseCase, neutral = false, headline = false, note }: TileProps) {
+function Tile({ label, figure, delta, baseCase, neutral = false, headline = false }: TileProps) {
   const ref = useFlash<HTMLDivElement>(figure);
   const deltaText = baseCase ? "Base case" : delta ? `${delta.text} vs base` : null;
   return (
     <div ref={ref} className="flex flex-col rounded-[6px] border border-border bg-surface px-3 pt-2 pb-2.5">
       {/* Labels never wrap; the desktop grid sizes the small tiles to fit them (see KpiTiles). */}
       <dt className="text-[13px] leading-5 whitespace-nowrap text-muted">{label}</dt>
-      {/* mt-auto: figures share a baseline across tiles even if a note makes one taller. */}
+      {/* mt-auto: figures share a baseline across tiles. */}
       <dd className="mt-auto pt-1">
         <span className={figureClass(figure, headline)}>{figure}</span>
-        {note && <span className="block text-[12px] leading-4 text-muted">{note}</span>}
         {/* The line is always present, so tiles don't change height when deltas appear. */}
         <span
           className={`block text-[12px] leading-4 ${
@@ -153,7 +151,6 @@ export function KpiTiles({ result }: { result: LboResult }) {
           label="IRR"
           headline
           figure={returns.irr === null ? "n.m." : formatPercent(returns.irr)}
-          note={returns.irrMeaningful ? undefined : "Equity at exit is zero or negative."}
           delta={irrDelta}
           baseCase={baseCase}
         />
