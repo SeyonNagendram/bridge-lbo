@@ -11,7 +11,8 @@ const BAR = 20;
 const INSET = (ROW - BAR) / 2;
 
 const FILL: Record<BridgeKind, string> = {
-  total: "fill-text",
+  // Grey = capital (as the debt bars), green / red = the value drivers.
+  total: "fill-muted",
   increase: "fill-positive",
   decrease: "fill-negative",
 };
@@ -19,8 +20,8 @@ const FILL: Record<BridgeKind, string> = {
 /**
  * Returns attribution (§4 bridge) as a horizontal waterfall, equity invested to equity at exit. Category
  * names are an HTML column beside the SVG, on the same 32px rows, so they keep a fixed width while the
- * bars fill the rest; value labels run into reserved padding on the right. Every figure is the
- * one from lib/charts.ts, rounded so that the steps foot exactly to the KPI tiles.
+ * bars fill the rest; value labels run into reserved padding on the right. Figures come from
+ * lib/charts.ts, each rounded on its own like the projection table; the bars use exact values.
  */
 export function ReturnsWaterfall({ result }: { result: LboResult }) {
   const { steps, zero } = bridgeChart(result);
@@ -49,8 +50,8 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
             </li>
           ))}
         </ul>
-        {/* pr: room for the value label after the longest bar, e.g. "(1,234.5)". */}
-        <div className="pr-16">
+        {/* pr: room for the value label after the longest bar, e.g. "1,234.5 · 55%". */}
+        <div className="pr-24">
           <svg width="100%" height={height} className="block overflow-visible text-[12px]">
             {/* Hairline at zero: the totals start here. */}
             <line
@@ -93,6 +94,7 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
                   )}
                   <ChartValue
                     text={step.text}
+                    note={step.shareText}
                     x={`${Math.max(step.start, step.end)}%`}
                     dx={6}
                     y={i * ROW + ROW / 2}
@@ -105,17 +107,25 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
           </svg>
         </div>
       </div>
-      <p className="mt-3 text-[13px] text-pretty text-muted">Each step is rounded so the bridge adds up to the totals shown.</p>
+      <p className="mt-3 text-[13px] text-muted">Figures may not sum due to rounding.</p>
 
       {/* sr-only on the wrapper: a table ignores the 1px width and would widen the page. */}
       <div className="sr-only">
         <table>
           <caption>Returns attribution: from equity invested to equity at exit, in € millions.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Step</th>
+              <th scope="col">€m</th>
+              <th scope="col">Share of value created</th>
+            </tr>
+          </thead>
           <tbody>
             {steps.map((step) => (
               <tr key={step.key}>
                 <th scope="row">{step.label}</th>
                 <td>{step.text}</td>
+                <td>{step.shareText ?? ""}</td>
               </tr>
             ))}
           </tbody>

@@ -152,10 +152,15 @@ function expectEqual(where, label, actual, expected) {
   }
 }
 
-/** Waterfall steps as screen readers get them (the sr-only table), e.g. { "Equity invested": "31.6", … }. */
+/** Waterfall steps as screen readers get them (the sr-only table), e.g. { "EBITDA growth": "27.1 55%", … }. */
 function bridgeSteps(page) {
   return page.locator('section[aria-labelledby="attribution-title"] table').evaluate((table) =>
-    Object.fromEntries([...table.querySelectorAll("tr")].map((tr) => [tr.cells[0].textContent, tr.cells[1].textContent])),
+    Object.fromEntries(
+      [...table.querySelectorAll("tbody tr")].map((tr) => [
+        tr.cells[0].textContent,
+        [tr.cells[1].textContent, tr.cells[2].textContent].filter(Boolean).join(" "),
+      ]),
+    ),
   );
 }
 
@@ -193,12 +198,16 @@ async function charts(page, where) {
   expectEqual(where, "debt chart: Year 0 to 5", await debtBars(), 6);
   expectEqual(where, "waterfall, base case", await bridgeSteps(page), {
     "Equity invested": "31.6",
-    "EBITDA growth": "27.1",
-    "Multiple expansion": "0.0",
-    "Debt paydown": "23.6",
-    Fees: "(1.6)",
+    "EBITDA growth": "27.1 55%",
+    "Multiple expansion": "–",
+    "Debt paydown": "23.6 48%",
+    Fees: "(1.6) \u22123%",
     "Equity at exit": "80.7",
   });
+  const leverage = await page
+    .locator('section[aria-labelledby="debt-title"] tbody tr')
+    .evaluateAll((rows) => rows.map((tr) => tr.cells[3].textContent));
+  expectEqual(where, "leverage under the years", leverage[0], "5.0x");
 
   // A cash-generative deal: the debt is repaid, cash builds up, and the totals still match the tiles.
   await page.locator("#input-leverage").fill("1");
@@ -210,9 +219,14 @@ async function charts(page, where) {
   expectEqual(where, "cash build-up step", "Cash build-up" in steps, true);
   expectEqual(where, "waterfall starts at the Equity invested tile", steps["Equity invested"], await tileFigure(page, "Equity invested"));
   expectEqual(where, "waterfall ends at the Equity at exit tile", steps["Equity at exit"], await tileFigure(page, "Equity at exit"));
-  const tenths = (t) => (t.startsWith("(") ? -1 : 1) * Math.round(Number(t.replace(/[(),]/g, "")) * 10);
+  // Every step is rounded on its own, so the displayed steps foot to the totals within rounding only.
+  const tenths = (t) => {
+    const figure = t.split(" ")[0];
+    return figure === "–" ? 0 : (figure.startsWith("(") ? -1 : 1) * Math.round(Number(figure.replace(/[(),]/g, "")) * 10);
+  };
   const values = Object.values(steps).map(tenths);
-  expectEqual(where, "waterfall foots", values.slice(1, -1).reduce((a, b) => a + b, 0), values.at(-1) - values[0]);
+  const gap = Math.abs(values.slice(1, -1).reduce((a, b) => a + b, 0) - (values.at(-1) - values[0]));
+  if (gap > 3) fail(where, `waterfall: displayed steps miss the totals by ${gap / 10}, more than rounding allows`);
   const cashKey = page.locator('section[aria-labelledby="debt-title"] p > span', { hasText: /^Cash$/ }).first();
   if (!(await cashKey.isVisible())) fail(where, "debt chart: no Cash legend key once cash builds up");
   for (const problem of await chartLabelProblems(page)) fail(where, `chart labels: ${problem}`);

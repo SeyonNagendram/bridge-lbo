@@ -33,7 +33,7 @@ export function DebtChart({ result }: { result: LboResult }) {
               <LegendKey label="Cash" className="bg-positive" />
             </>
           )}
-          <span>€m, year end</span>
+          <span>€m, year end · leverage below</span>
         </p>
       </div>
 
@@ -84,6 +84,13 @@ export function DebtChart({ result }: { result: LboResult }) {
               <tspan className="hidden sm:inline">Year </tspan>
               {bar.year}
             </text>
+            <ChartValue
+              text={bar.leverageLabel}
+              x={`${bar.centre}%`}
+              y={chart.baseline + 32}
+              textAnchor="middle"
+              className="fill-muted text-[11px]"
+            />
           </g>
         ))}
         {/* Hairline baseline, drawn last so it sits on top of the bar ends. */}
@@ -101,12 +108,13 @@ export function DebtChart({ result }: { result: LboResult }) {
       {/* sr-only on the wrapper: a table ignores the 1px width and would widen the page. */}
       <div className="sr-only">
         <table>
-          <caption>Debt paydown: debt and cash at the end of each year, in € millions.</caption>
+          <caption>Debt paydown: debt and cash at the end of each year, in € millions, with leverage.</caption>
           <thead>
             <tr>
               <th scope="col">Year</th>
               <th scope="col">Debt</th>
               <th scope="col">Cash</th>
+              <th scope="col">Leverage (debt / EBITDA)</th>
             </tr>
           </thead>
           <tbody>
@@ -115,6 +123,7 @@ export function DebtChart({ result }: { result: LboResult }) {
                 <th scope="row">Year {bar.year}</th>
                 <td>{formatMoney(bar.debt)}</td>
                 <td>{formatMoney(bar.cash)}</td>
+                <td>{bar.leverageLabel}</td>
               </tr>
             ))}
           </tbody>

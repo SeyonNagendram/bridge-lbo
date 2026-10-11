@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { allocateTenths, bridgeChart, debtChart, toTenths, DEBT_CHART } from "../charts";
-import { formatEuroMillions } from "../format";
+import { bridgeChart, debtChart, DEBT_CHART } from "../charts";
+import { formatEuroMillions, formatMoney, formatShare } from "../format";
+import { projectionRows } from "../projection";
 import { BASE_CASE, runLbo, type LboResult } from "../lbo";
 import { randomValidInputs, seededRandom } from "../lbo/__tests__/helpers";
 
@@ -31,29 +32,13 @@ function coordinates(result: LboResult): number[] {
   ];
 }
 
-describe("toTenths", () => {
-  it("rounds like the displayed figure", () => {
-    expect(toTenths(31.64)).toBe(316);
-    expect(toTenths(-1.6)).toBe(-16);
-    expect(toTenths(0.15)).toBe(1); // 0.15 is stored as 0.1499…, displayed as 0.1
-    expect(toTenths(-0.04)).toBe(0);
-  });
-});
-
-describe("allocateTenths", () => {
-  it("sums exactly to the target, each part within 0.1 of its exact value", () => {
-    const values = [1.04, 2.04, 3.04];
-    const parts = allocateTenths(values, 62);
-    expect(parts.reduce((a, b) => a + b, 0)).toBe(62);
-    parts.forEach((p, i) => expect(Math.abs(p - values[i] * 10)).toBeLessThan(1));
-  });
-
-  it("moves the parts closest to the next tenth first", () => {
-    expect(allocateTenths([1.01, 1.09], 21)).toEqual([10, 11]);
-  });
-
-  it("handles negative parts", () => {
-    expect(allocateTenths([-1.6, 5.25], 36)).toEqual([-16, 52]);
+describe("formatShare", () => {
+  it("shows whole percent with an explicit minus", () => {
+    expect(formatShare(0.5512)).toBe("55%");
+    expect(formatShare(-0.0326)).toBe("\u22123%");
+    expect(formatShare(-0.004)).toBe("0%");
+    expect(formatShare(12)).toBe("n.m.");
+    expect(formatShare(Infinity)).toBe("n.m.");
   });
 });
 
@@ -70,14 +55,22 @@ describe("bridgeChart", () => {
   });
 
   it("matches the golden values in the base case", () => {
-    const text = Object.fromEntries(bridgeChart(base).steps.map((s) => [s.key, s.text]));
-    expect(text).toEqual({
+    const steps = bridgeChart(base).steps;
+    expect(Object.fromEntries(steps.map((s) => [s.key, s.text]))).toEqual({
       equityInvested: "31.6",
       ebitdaGrowth: "27.1",
-      multipleExpansion: "0.0",
+      multipleExpansion: "–", // exactly zero: entry = exit multiple
       debtPaydown: "23.6",
       fees: "(1.6)",
       equityAtExit: "80.7",
+    });
+    expect(Object.fromEntries(steps.map((s) => [s.key, s.shareText]))).toEqual({
+      equityInvested: null,
+      ebitdaGrowth: "55%",
+      multipleExpansion: null,
+      debtPaydown: "48%",
+      fees: "\u22123%",
+      equityAtExit: null,
     });
   });
 
@@ -96,23 +89,62 @@ describe("bridgeChart", () => {
     ]);
   });
 
-  it("reconciles exactly to the KPI tiles and foots as displayed (1,000 random cases)", () => {
+  it("shows the totals exactly as the KPI tiles and rounds every step on its own (1,000 random cases)", () => {
     for (const result of [base, ...randomResults(3, 1000)]) {
       const steps = bridgeChart(result).steps;
       const first = steps[0];
       const last = steps[steps.length - 1];
-      // The totals are the tile figures, digit for digit.
       expect(parseTenths(first.text)).toBe(parseTenths(formatEuroMillions(result.entry.equity)));
       expect(parseTenths(last.text)).toBe(parseTenths(formatEuroMillions(result.exit.equity)));
-      // The displayed parts add up to the displayed difference, with no rounding gap.
-      const parts = steps.slice(1, -1).reduce((sum, s) => sum + parseTenths(s.text), 0);
-      expect(parts).toBe(parseTenths(last.text) - parseTenths(first.text));
-      // No part is bent by more than 0.1 from its exact value.
-      for (const s of steps.slice(1, -1)) {
-        const exact = { ...result.bridge }[s.key as keyof LboResult["bridge"]];
-        expect(Math.abs(s.tenths - exact * 10)).toBeLessThan(1 + 1e-9);
-      }
+      for (const s of steps) expect(s.text).toBe(s.value === 0 ? "–" : formatMoney(s.value));
+      // The exact parts foot; the displayed ones may miss by rounding alone: ≤ 0.05 per figure, so at
+      // most 0.1 per part plus 0.1 for the two totals (shown at one decimal).
+      const parts = steps.slice(1, -1);
+      expect(parts.reduce((sum, s) => sum + s.value, 0)).toBeCloseTo(last.value - first.value, 6);
+      const displayedGap = Math.abs(
+        parts.reduce((sum, s) => sum + (s.text === "–" ? 0 : parseTenths(s.text)), 0) -
+          (parseTenths(last.text) - parseTenths(first.text)),
+      );
+      expect(displayedGap).toBeLessThanOrEqual(Math.ceil((parts.length + 2) / 2));
     }
+  });
+
+  it("gives shares of value created that sum to 100% within rounding (1,000 random cases)", () => {
+    let checked = 0;
+    for (const result of [base, ...randomResults(17, 1000)]) {
+      const chart = bridgeChart(result);
+      const parts = chart.steps.slice(1, -1);
+      if (!chart.sharesMeaningful) {
+        for (const s of parts) expect(s.shareText).toBe(s.value === 0 ? null : "n.m.");
+        continue;
+      }
+      // Exact shares sum to exactly 100%.
+      expect(parts.reduce((sum, s) => sum + (s.share ?? 0), 0)).toBeCloseTo(1, 9);
+      // Displayed shares (whole percent) are each within 0.5pp, so the sum is within 0.5pp per part.
+      if (parts.some((s) => s.shareText === "n.m.")) continue; // a share of ±1,000% or more
+      const displayed = parts.reduce((sum, s) => {
+        if (s.shareText === null) return sum;
+        return sum + Number(s.shareText.replace("\u2212", "-").replace("%", ""));
+      }, 0);
+      expect(Math.abs(displayed - 100)).toBeLessThanOrEqual(parts.length * 0.5);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(300);
+  });
+
+  it("shows n.m. for every share when no value is created", () => {
+    const loss = runLbo({ ...BASE_CASE, exitMultiple: 4 });
+    expect(loss.exit.equity).toBeLessThan(loss.entry.equity);
+    const chart = bridgeChart(loss);
+    expect(chart.sharesMeaningful).toBe(false);
+    expect(chart.steps.slice(1, -1).every((s) => s.shareText === "n.m.")).toBe(true);
+    expect(chart.steps[0].shareText).toBeNull();
+  });
+
+  it("shows an exact zero as an en dash with no share, and keeps its row", () => {
+    const noFees = bridgeChart(runLbo({ ...BASE_CASE, feePct: 0 }));
+    const fees = noFees.steps.find((s) => s.key === "fees")!;
+    expect([fees.text, fees.shareText, fees.start === fees.end]).toEqual(["–", null, true]);
   });
 
   it("chains the bars: each part starts where the previous one ended", () => {
@@ -121,6 +153,7 @@ describe("bridgeChart", () => {
       expect(steps[0].start).toBe(zero);
       expect(steps[steps.length - 1].start).toBe(zero);
       for (let i = 1; i < steps.length - 1; i++) expect(steps[i].start).toBe(steps[i - 1].end);
+      // The bars use exact values, so the exit total ends where the last part does, whatever the labels say.
       expect(steps[steps.length - 2].end).toBe(steps[steps.length - 1].end);
     }
   });
@@ -145,6 +178,8 @@ describe("bridgeChart", () => {
 describe("debtChart", () => {
   it("has one bar per year, Year 0 to N, labelled like the projection table", () => {
     const chart = debtChart(base);
+    // Leverage under each year reads exactly as in the projection table.
+    expect(chart.bars.map((b) => b.leverageLabel)).toEqual(projectionRows(base).find((r) => r.key === "leverage")!.cells);
     expect(chart.bars.map((b) => b.year)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(chart.bars.map((b) => b.debtLabel)).toEqual(["50.0", "46.4", "42.4", "37.7", "32.4", "26.4"]);
     expect(chart.hasCash).toBe(false);
@@ -162,6 +197,7 @@ describe("debtChart", () => {
     expect(chart.hasCash).toBe(true);
     const last = chart.bars[chart.bars.length - 1];
     expect(last.debtLabel).toBeNull();
+    expect(last.leverageLabel).toBe("–");
     expect(last.cashHeight).toBeGreaterThan(0);
     expect(last.cashLabel).toMatch(/^\d/);
     // Segments never overlap: cash sits above the debt.
@@ -187,8 +223,8 @@ describe("chart markup", () => {
   it("never shows NaN, Infinity or undefined in a label", () => {
     for (const result of randomResults(13, 1000)) {
       const labels = [
-        ...debtChart(result).bars.flatMap((b) => [b.debtLabel ?? "", b.cashLabel ?? ""]),
-        ...bridgeChart(result).steps.map((s) => s.text),
+        ...debtChart(result).bars.flatMap((b) => [b.debtLabel ?? "", b.cashLabel ?? "", b.leverageLabel]),
+        ...bridgeChart(result).steps.flatMap((s) => [s.text, s.shareText ?? ""]),
       ];
       for (const label of labels) expect(label).not.toMatch(/NaN|Infinity|undefined/);
     }

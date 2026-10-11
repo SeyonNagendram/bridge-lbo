@@ -152,8 +152,8 @@ One page plus a methodology section. No other routes in v1.
 - **Right, scrolling:**
   1. **Returns header:** 4 KPI tiles: IRR (largest), MoM, Equity invested, Equity at exit. One line beneath: entry leverage and Year-1 interest coverage.
   2. **Sources & Uses** — two small side-by-side tables (Uses: purchase price, fees, total · Sources: debt, equity, total; totals must match).
-  3. **Debt paydown chart** — bars of Debt_t for t = 0…N, cash shown as a separate segment if > 0. Values labelled on bars.
-  4. **Returns attribution** — horizontal waterfall from equity invested to equity at exit using the bridge in §4.
+  3. **Debt paydown chart** — bars of Debt_t for t = 0…N, cash shown as a separate segment if > 0. Values labelled on bars. *(Updated after Phase 3: under each year label, that year's leverage (Debt / EBITDA) in small muted text, e.g. `5.0x`, an en dash once the debt is repaid; the same figures as the projection table's Leverage row. Debt bars in the muted grey of the capital structure bar, cash in `--positive`, with a Debt / Cash legend only once there is cash.)*
+  4. **Returns attribution** — horizontal waterfall from equity invested to equity at exit using the bridge in §4. *(Updated after Phase 3: Equity invested → EBITDA growth → Multiple expansion → Debt paydown → Cash build-up (only if > 0) → Fees → Equity at exit. The two totals in the same grey as the debt bars, increases in `--positive`, decreases in `--negative`: grey = capital, green/red = value drivers, consistently across the page. Thin connector lines between bars, a value label on every bar. Every figure is rounded on its own, as in the projection table, with "Figures may not sum due to rounding." beneath; the totals read exactly as the KPI tiles, and the bars use exact values. Exact zeros show as an en dash, with the row kept and no bar. Next to each step's value, its share of the value created (Equity at exit − Equity invested) in small muted text, e.g. "27.1 · 55%", "(1.6) · −3%"; "n.m." when the value created is zero or negative at display precision, or for a share of ±1,000% or more. The shares sum to 100% within rounding; tested in `lib/__tests__/charts.test.ts`.)*
   5. **Sensitivity grid** — with the current case highlighted (outline, not a fill) and the colour scale described in §7.
   6. **Projection table** — rows: Revenue, EBITDA, EBITDA margin, D&A, EBIT, Interest, EBT, Tax, Net income, D&A (add-back), Capex, ΔNWC, FCF, Debt (end of year), Cash, Leverage, Interest coverage. Columns: Year 0 … N. Subtotal rows (EBITDA, EBIT, Net income, FCF) in medium weight with a hairline above. *(Updated after Phase 2: D&A is added back between Net income and Capex, so the cash flow block foots as displayed: Net income + D&A − Capex − ΔNWC = FCF. Deductions are shown in parentheses. Each figure is rounded on its own, so outside the base case the displayed parts can differ from the displayed FCF by up to 0.1–0.2 through rounding alone; tested in `lib/__tests__/projection.test.ts`.)*
 - **Methodology** section at the bottom (see §8).
@@ -263,7 +263,7 @@ Page shell, design tokens, light/dark, input panel wired to the engine, KPI tile
 Projection table, sensitivity grid with IRR/MoM toggle and colour scale.
 
 **Phase 3 — Charts**
-Debt paydown chart and returns attribution waterfall (hand-built SVG).
+Debt paydown chart and returns attribution waterfall (hand-built SVG). *(Done; refinements from the Phase 3 review are recorded in §5, items 3 and 4.)*
 
 **Phase 4 — Polish**
 URL state and "Copy link", warnings (cash shortfall, low coverage, n.m. IRR), methodology draft, footer, empty/edge states, keyboard and screen-reader pass.
