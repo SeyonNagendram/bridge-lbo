@@ -155,7 +155,7 @@ One page plus a methodology section. No other routes in v1.
   3. **Debt paydown chart** — bars of Debt_t for t = 0…N, cash shown as a separate segment if > 0. Values labelled on bars.
   4. **Returns attribution** — horizontal waterfall from equity invested to equity at exit using the bridge in §4.
   5. **Sensitivity grid** — with the current case highlighted (outline, not a fill) and the colour scale described in §7.
-  6. **Projection table** — rows: Revenue, EBITDA, EBITDA margin, D&A, EBIT, Interest, EBT, Tax, Net income, Capex, ΔNWC, FCF, Debt (end of year), Cash, Leverage, Interest coverage. Columns: Year 0 … N. Subtotal rows (EBITDA, EBIT, Net income, FCF) in medium weight with a hairline above.
+  6. **Projection table** — rows: Revenue, EBITDA, EBITDA margin, D&A, EBIT, Interest, EBT, Tax, Net income, D&A (add-back), Capex, ΔNWC, FCF, Debt (end of year), Cash, Leverage, Interest coverage. Columns: Year 0 … N. Subtotal rows (EBITDA, EBIT, Net income, FCF) in medium weight with a hairline above. *(Updated after Phase 2: D&A is added back between Net income and Capex, so the cash flow block foots as displayed: Net income + D&A − Capex − ΔNWC = FCF. Deductions are shown in parentheses. Each figure is rounded on its own, so outside the base case the displayed parts can differ from the displayed FCF by up to 0.1–0.2 through rounding alone; tested in `lib/__tests__/projection.test.ts`.)*
 - **Methodology** section at the bottom (see §8).
 - **Footer:** "Built by Seyon Nagendram" with a LinkedIn link (placeholder URL constant), "Illustrative model, not investment advice.", link to the GitHub repo (placeholder constant).
 
@@ -267,6 +267,7 @@ Debt paydown chart and returns attribution waterfall (hand-built SVG).
 
 **Phase 4 — Polish**
 URL state and "Copy link", warnings (cash shortfall, low coverage, n.m. IRR), methodology draft, footer, empty/edge states, keyboard and screen-reader pass.
+*(Noted after Phase 2)* Edge state to fix: very large deals overflow the KPI tiles. With revenue in the thousands a figure like "€120,000.0m" doesn't fit a phone-width tile.
 
 **Phase 5 — Ship**
 Metadata and Open Graph image (1200×630, title + IRR of the base case on a clean background) so the LinkedIn link preview looks good, favicon, README (what it is, screenshot, methodology summary, stack, how to run, how tests verify the model against Excel), Vercel deployment.

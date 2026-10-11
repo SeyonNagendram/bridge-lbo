@@ -1,6 +1,6 @@
 // Rows of the projection table (§5), as display strings for Year 0 … N. Pure functions, no React,
 // unit-tested like the engine. Deductions (D&A, interest, tax, capex, ΔNWC) are shown as negatives in
-// parentheses, banking-style, so the P&L reads top to bottom as a subtraction.
+// parentheses, banking-style, so the P&L and the cash flow build each read top to bottom as a sum.
 
 import type { LboResult, ProjectionYear } from "./lbo";
 import { formatMoney, formatMultiple, formatPercent } from "./format";
@@ -48,6 +48,8 @@ export function projectionRows(result: LboResult): ProjectionRow[] {
     row("ebt", "EBT", money((y) => y.ebt, null)),
     row("tax", "Tax", money((y) => y.tax, null, -1)),
     row("netIncome", "Net income", money((y) => y.netIncome, null), { subtotal: true }),
+    // Non-cash, so added back: the cash flow block then foots, Net income + D&A − Capex − ΔNWC = FCF.
+    row("daAddBack", "D&A (add-back)", money((y) => y.da, null)),
     row("capex", "Capex", money((y) => y.capex, null, -1)),
     row("changeInNwc", "ΔNWC", money((y) => y.changeInNwc, null, -1)),
     row("fcf", "FCF", money((y) => y.fcf, null), { subtotal: true }),
