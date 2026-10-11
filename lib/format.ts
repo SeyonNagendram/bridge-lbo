@@ -18,16 +18,21 @@ function fixed(value: number, decimals: number): string {
 }
 
 /** Formats |value| and wraps negatives in parentheses; "-0.0" becomes "0.0". */
-function withParens(value: number, suffix: string, decimals = 1): string {
+function withParens(value: number, suffix: string, decimals = 1, prefix = ""): string {
   if (!Number.isFinite(value)) return NOT_MEANINGFUL;
   const text = fixed(Math.abs(value), decimals);
   const roundsToZero = text === fixed(0, decimals);
-  return value < 0 && !roundsToZero ? `(${text}${suffix})` : `${text}${suffix}`;
+  return value < 0 && !roundsToZero ? `(${prefix}${text}${suffix})` : `${prefix}${text}${suffix}`;
 }
 
 /** €m amount, e.g. 31.6, 1,234.5, (1.6). The unit belongs in the label, not the cell. */
 export function formatMoney(value: number): string {
   return withParens(value, "");
+}
+
+/** €m amount with the unit in the figure, banking-style, e.g. €31.6m, (€5.2m). For standalone figures (KPI tiles). */
+export function formatEuroMillions(value: number): string {
+  return withParens(value, "m", 1, "€");
 }
 
 /** Multiple, e.g. 8.0x, (0.5x). Entry/exit multiples and leverage use one decimal. */
@@ -56,16 +61,14 @@ export interface Delta {
 }
 
 /**
- * A change shown with an explicit sign rather than parentheses, e.g. +2.1pp / −0.12x.
+ * A change shown with an explicit sign rather than parentheses, e.g. +2.1pp / −0.12x / +€5.1m.
  * Anything that rounds to zero is "flat" and unsigned, so colour never disagrees with the digits.
  */
-export function formatDelta(value: number, decimals: number, suffix = ""): Delta | null {
+export function formatDelta(value: number, decimals: number, suffix = "", prefix = ""): Delta | null {
   if (!Number.isFinite(value)) return null;
-  const text = fixed(Math.abs(value), decimals);
-  if (text === fixed(0, decimals)) return { text: `${text}${suffix}`, direction: "flat" };
-  return value > 0
-    ? { text: `+${text}${suffix}`, direction: "up" }
-    : { text: `\u2212${text}${suffix}`, direction: "down" };
+  const text = `${prefix}${fixed(Math.abs(value), decimals)}${suffix}`;
+  if (fixed(Math.abs(value), decimals) === fixed(0, decimals)) return { text, direction: "flat" };
+  return value > 0 ? { text: `+${text}`, direction: "up" } : { text: `\u2212${text}`, direction: "down" };
 }
 
 // ── Input fields ─────────────────────────────────────────────────────────────

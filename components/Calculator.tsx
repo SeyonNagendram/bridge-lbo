@@ -91,7 +91,8 @@ export function Calculator() {
     <>
       {/* The deal in one sentence, like a memo's opening line; follows the last valid result. */}
       <div className="mb-8 border-b border-border pb-6">
-        <p className="max-w-[760px] text-[15px] leading-6 text-muted">
+        {/* ~70ch and text-wrap: pretty, so the sentence breaks at natural points without orphans. */}
+        <p className="max-w-[70ch] text-[15px] leading-6 text-pretty text-muted">
           {dealSummary(state.result).map((segment, i) =>
             segment.strong ? (
               <span key={i} className="font-medium text-text">

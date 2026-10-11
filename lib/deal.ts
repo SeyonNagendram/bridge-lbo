@@ -57,7 +57,7 @@ export function dealSummary(result: LboResult): SummarySegment[] {
     { text: `${years} ${years === 1 ? "year" : "years"}`, strong: true },
     { text: " at " },
     { text: formatMultiple(inputs.exitMultiple), strong: true },
-    { text: " → " },
+    { text: "\u00a0→ " }, // nbsp: the arrow never starts a line
     { text: `${returns.irr === null ? "n.m." : formatPercent(returns.irr)} IRR`, strong: true },
     { text: ", " },
     { text: `${formatMoM(returns.mom)} MoM`, strong: true },

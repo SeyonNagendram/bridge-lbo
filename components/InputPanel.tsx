@@ -62,6 +62,24 @@ function useScrollFade<T extends HTMLElement>() {
   return ref;
 }
 
+/** Points down when collapsed, up when open. Flips instantly: §7 allows only colour/opacity transitions. */
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+      className={`shrink-0 text-muted ${open ? "rotate-180" : ""}`}
+    >
+      <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 interface InputPanelProps {
   drafts: Record<InputKey, string>;
   errors: ValidationError[];
@@ -84,28 +102,25 @@ export function InputPanel({ drafts, errors, onDraftChange, onStep, onBlur, onRe
       aria-labelledby="assumptions-title"
       className="rounded-[6px] border border-border bg-surface lg:flex lg:max-h-[calc(100vh-96px)] lg:flex-col"
     >
-      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-4 py-3">
-        <h2 id="assumptions-title" className="font-serif text-[15px] font-semibold">
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls="assumptions-body"
-            onClick={() => setOpen((value) => !value)}
-            className="flex items-baseline gap-2 lg:hidden"
-          >
-            Assumptions
-            <span className="font-sans text-[13px] font-normal text-muted">{open ? "Hide" : "Show"}</span>
-          </button>
-          <span className="hidden lg:inline">Assumptions</span>
-        </h2>
+      {/* Mobile: the whole header row is the toggle. Desktop: a plain heading, always expanded.
+          The hairline under the header only shows while the body does, so a collapsed panel
+          doesn't end in a double border. */}
+      <h2
+        id="assumptions-title"
+        className={`shrink-0 border-border font-serif text-[15px] font-semibold lg:border-b ${open ? "border-b" : ""}`}
+      >
         <button
           type="button"
-          onClick={onReset}
-          className="text-[13px] text-muted underline-offset-4 transition-colors duration-150 hover:text-text hover:underline"
+          aria-expanded={open}
+          aria-controls="assumptions-body"
+          onClick={() => setOpen((value) => !value)}
+          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left lg:hidden"
         >
-          Reset to base case
+          Assumptions
+          <ChevronIcon open={open} />
         </button>
-      </div>
+        <span className="hidden px-4 py-3 lg:block">Assumptions</span>
+      </h2>
 
       <div
         id="assumptions-body"
@@ -132,6 +147,17 @@ export function InputPanel({ drafts, errors, onDraftChange, onStep, onBlur, onRe
             ))}
           </fieldset>
         ))}
+      </div>
+
+      {/* Below the fields and outside the scroll area, so it's always reachable on desktop. */}
+      <div className={`shrink-0 border-t border-border px-4 py-3 ${open ? "" : "hidden lg:block"}`}>
+        <button
+          type="button"
+          onClick={onReset}
+          className="text-[13px] text-muted underline-offset-4 transition-colors duration-150 hover:text-text hover:underline"
+        >
+          Reset to base case
+        </button>
       </div>
     </section>
   );

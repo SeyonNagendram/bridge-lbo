@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatDelta,
+  formatEuroMillions,
   formatInputValue,
   formatMoM,
   formatMoney,
@@ -92,5 +93,23 @@ describe("formatDelta", () => {
   });
   it("returns null for non-finite input", () => {
     expect(formatDelta(NaN, 1)).toBeNull();
+  });
+  it("puts a currency prefix after the sign", () => {
+    expect(formatDelta(5.06, 1, "m", "€")).toEqual({ text: "+€5.1m", direction: "up" });
+    expect(formatDelta(-5.06, 1, "m", "€")).toEqual({ text: "\u2212€5.1m", direction: "down" });
+    expect(formatDelta(0.01, 1, "m", "€")).toEqual({ text: "€0.0m", direction: "flat" });
+  });
+});
+
+describe("formatEuroMillions", () => {
+  it("carries the unit in the figure, banking-style", () => {
+    expect(formatEuroMillions(31.6)).toBe("€31.6m");
+    expect(formatEuroMillions(80.69)).toBe("€80.7m");
+    expect(formatEuroMillions(1234.56)).toBe("€1,234.6m");
+  });
+  it("wraps negatives in parentheses, unit included", () => {
+    expect(formatEuroMillions(-5.24)).toBe("(€5.2m)");
+    expect(formatEuroMillions(-0.01)).toBe("€0.0m");
+    expect(formatEuroMillions(NaN)).toBe("n.m.");
   });
 });

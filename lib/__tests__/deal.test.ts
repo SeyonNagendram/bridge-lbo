@@ -10,7 +10,7 @@ const plain = (inputs: Parameters<typeof runLbo>[0]) =>
 describe("dealSummary", () => {
   it("reads like a memo's first line for the base case", () => {
     expect(plain(BASE_CASE)).toBe(
-      "Acquire at 8.0x EBITDA (€80.0m), funded 61% debt / 39% equity; exit after 5 years at 8.0x → 20.6% IRR, 2.55x MoM.",
+      "Acquire at 8.0x EBITDA (€80.0m), funded 61% debt / 39% equity; exit after 5 years at 8.0x\u00a0→ 20.6% IRR, 2.55x MoM.",
     );
   });
   it("marks the key figures as strong", () => {
