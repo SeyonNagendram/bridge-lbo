@@ -27,7 +27,7 @@ function ValueCreated({ value }: { value: number }) {
 }
 
 /**
- * Returns attribution (§4 bridge) as a horizontal waterfall, equity invested to equity at exit. Category
+ * Value creation bridge (§4) as a horizontal waterfall, equity invested to equity at exit. Category
  * names are an HTML column beside the SVG, on the same 32px rows, so they keep a fixed width while the
  * bars fill the rest; value labels run into reserved padding on the right. Figures come from
  * lib/charts.ts, each rounded on its own like the projection table; the bars use exact values.
@@ -40,7 +40,7 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
     <section aria-labelledby="attribution-title">
       <div className="mb-3 flex items-baseline justify-between gap-4">
         <h2 id="attribution-title" className={sectionTitle}>
-          Returns attribution
+          Value creation bridge
         </h2>
         <p aria-hidden="true" className="text-[12px] text-muted">
           {unit}
@@ -125,7 +125,7 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
       <div className="sr-only">
         <table>
           <caption>
-            Returns attribution: from equity invested to equity at exit, in {unit === "€bn" ? "€ billions" : "€ millions"}.
+            Value creation bridge: from equity invested to equity at exit, in {unit === "€bn" ? "€ billions" : "€ millions"}.
           </caption>
           <thead>
             <tr>

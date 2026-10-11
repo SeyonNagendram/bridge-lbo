@@ -2,7 +2,7 @@ import { Calculator } from "@/components/Calculator";
 import { Footer } from "@/components/Footer";
 import { Methodology } from "@/components/Methodology";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { APP_NAME } from "@/lib/site";
+import { APP_NAME, APP_SUBTITLE } from "@/lib/site";
 
 export default function Home() {
   return (
@@ -10,7 +10,7 @@ export default function Home() {
       <header className="flex items-start justify-between gap-4 pt-6">
         <div>
           <h1 className="font-serif text-[28px] leading-9 font-semibold">{APP_NAME}</h1>
-          <p className="text-muted">LBO returns calculator</p>
+          <p className="text-muted">{APP_SUBTITLE}</p>
         </div>
         <ThemeToggle />
       </header>

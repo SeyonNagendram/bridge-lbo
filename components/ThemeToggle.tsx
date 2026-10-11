@@ -5,7 +5,7 @@ import { THEME_STORAGE_KEY } from "@/lib/site";
 
 type Theme = "light" | "dark";
 
-const CHANGE_EVENT = "sweep-theme-change";
+const CHANGE_EVENT = "bridge-theme-change";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 // The theme lives on <html data-theme> (set before paint by the inline script in the layout),

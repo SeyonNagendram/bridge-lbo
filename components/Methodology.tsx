@@ -119,7 +119,7 @@ export function Methodology() {
           </p>
           <Formulas lines={["Leverage(t) = Debt(t) ÷ EBITDA(t)", "Interest coverage(t) = EBITDA(t) ÷ Interest(t)"]} />
         </Step>
-        <Step title="6. Returns attribution">
+        <Step title="6. Value creation bridge">
           <p>
             The gain from equity invested to equity at exit is split into where it came from: higher EBITDA, a higher
             exit multiple, debt repaid, cash built up, minus the fees. The parts add up exactly to the total gain.

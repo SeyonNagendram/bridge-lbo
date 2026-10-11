@@ -1,4 +1,4 @@
-// Geometry and labels for the two charts (§5): debt paydown and returns attribution. Pure functions,
+// Geometry and labels for the two charts (§5): debt paydown and value creation bridge. Pure functions,
 // no React, unit-tested like the engine. Every coordinate is rounded here, before it reaches the
 // markup, so the server render and the browser produce identical HTML (no hydration mismatch).
 // Horizontal positions are percentages of the plot width, so the SVG fills any container while text
@@ -118,7 +118,7 @@ export function debtChart(result: LboResult): DebtChartGeometry {
   return { bars, baseline, height: baseline + bottom, hasCash: bars.some((b) => b.cash > 0), unit };
 }
 
-// ── Returns attribution ──────────────────────────────────────────────────────
+// ── Value creation bridge ──────────────────────────────────────────────────────
 
 export type BridgeKind = "total" | "increase" | "decrease";
 

@@ -63,7 +63,7 @@ export function formatPercent(value: number): string {
 
 /**
  * A share of a total in whole percent with an explicit minus rather than parentheses, e.g. 0.551 → 55%,
- * −0.033 → −3% (returns attribution). n.m. from ±1,000%: next to a near-zero total, shares stop meaning anything.
+ * −0.033 → −3% (value creation bridge). n.m. from ±1,000%: next to a near-zero total, shares stop meaning anything.
  */
 export function formatShare(value: number): string {
   if (!Number.isFinite(value)) return NOT_MEANINGFUL;
