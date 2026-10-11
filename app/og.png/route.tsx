@@ -19,6 +19,12 @@ const TEXT = "#0E1116";
 const MUTED = "#6B6F76";
 const ACCENT = "#0F3D6E";
 
+// Source Serif 4 metrics (per em): cap height 0.67, ascent 1.036, descent 0.335. With line-height 1 the
+// text box is one em tall and the baseline sits half the excess leading below the ascent.
+const TITLE_SIZE = 112;
+const CAP_HEIGHT = 0.67;
+const BASELINE = TITLE_SIZE * (1.036 - (1.036 + 0.335 - 1) / 2);
+
 const font = (file: string) => readFile(join(process.cwd(), "assets/fonts", file));
 
 export async function GET() {
@@ -44,8 +50,21 @@ export async function GET() {
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontFamily: "Source Serif 4", fontSize: 112, lineHeight: 1, letterSpacing: "-0.01em" }}>
-            {APP_NAME}
+          {/* Mark and name in the header's proportions (components/SiteHeader.tsx): the mark is the cap height
+              and sits on the baseline, then a 0.36em gap. */}
+          <div style={{ display: "flex", alignItems: "flex-start" }}>
+            <svg
+              viewBox="0 0 32 32"
+              width={TITLE_SIZE * CAP_HEIGHT}
+              height={TITLE_SIZE * CAP_HEIGHT}
+              style={{ marginTop: BASELINE - TITLE_SIZE * CAP_HEIGHT, marginRight: TITLE_SIZE * 0.36 }}
+            >
+              <rect width="32" height="32" rx="6" fill={ACCENT} />
+              <path fill={BG} d="M6 18h4v8H6zM14 12h4v6h-4zM22 6h4v20h-4z" />
+            </svg>
+            <div style={{ fontFamily: "Source Serif 4", fontSize: TITLE_SIZE, lineHeight: 1, letterSpacing: "-0.01em" }}>
+              {APP_NAME}
+            </div>
           </div>
           <div style={{ marginTop: 24, fontSize: 40, color: MUTED }}>{APP_SUBTITLE}</div>
         </div>
