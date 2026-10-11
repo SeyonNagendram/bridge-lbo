@@ -13,9 +13,11 @@ import {
 } from "@/lib/calculatorState";
 import { dealSummary } from "@/lib/deal";
 import type { Axis, Direction } from "@/lib/sensitivityView";
+import { DebtChart } from "./DebtChart";
 import { InputPanel } from "./InputPanel";
 import { KpiTiles } from "./KpiTiles";
 import { ProjectionTable } from "./ProjectionTable";
+import { ReturnsWaterfall } from "./ReturnsWaterfall";
 import { SensitivityGrid } from "./SensitivityGrid";
 import { SourcesUses } from "./SourcesUses";
 
@@ -79,9 +81,11 @@ export function Calculator() {
           </div>
         </aside>
 
-        {/* Sections in §5 order (charts follow in Phase 3, between Sources & Uses and Sensitivity). */}
+        {/* Sections in §5 order. */}
         <div className="min-w-0 space-y-12 lg:col-start-2 lg:row-start-2">
           <SourcesUses entry={state.result.entry} />
+          <DebtChart result={state.result} />
+          <ReturnsWaterfall result={state.result} />
           <SensitivityGrid
             inputs={state.result.inputs}
             anchor={state.anchor}

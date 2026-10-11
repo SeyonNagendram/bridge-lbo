@@ -106,6 +106,17 @@ body {
   animation: flash 600ms ease-out;
 }
 
+/* Chart labels are SVG text, which has no background: the same 600ms fade, on the figure's own colour. */
+@keyframes flash-text {
+  from {
+    fill: var(--accent);
+  }
+}
+
+text.flash {
+  animation-name: flash-text;
+}
+
 /* A hyphenated word in running text ("Year-1", "add-back"). With tabular figures on, Inter draws the
    hyphen (and the digit 1) at figure width, which reads as "Year - 1". Proportional figures restore normal
    spacing; nowrap keeps the word on one line. */
@@ -167,7 +178,8 @@ body {
     transition-duration: 0s !important;
   }
 
-  .flash {
+  .flash,
+  text.flash {
     animation: none;
   }
 }

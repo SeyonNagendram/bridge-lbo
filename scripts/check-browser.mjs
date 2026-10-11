@@ -3,7 +3,7 @@
 // or broken interaction.
 //
 //   npm run build && npm run check:browser
-//   npm run check:browser -- --screenshots shots   # also saves grid screenshots, light and dark
+//   npm run check:browser -- --screenshots shots   # also saves grid and chart screenshots, light and dark
 //
 // Runs against two targets:
 //   prod  the static export in out/, served from a local port by this script
@@ -152,6 +152,74 @@ function expectEqual(where, label, actual, expected) {
   }
 }
 
+/** Waterfall steps as screen readers get them (the sr-only table), e.g. { "Equity invested": "31.6", … }. */
+function bridgeSteps(page) {
+  return page.locator('section[aria-labelledby="attribution-title"] table').evaluate((table) =>
+    Object.fromEntries([...table.querySelectorAll("tr")].map((tr) => [tr.cells[0].textContent, tr.cells[1].textContent])),
+  );
+}
+
+/** A KPI tile's figure without the unit: "€31.6m" → "31.6", "(€5.2m)" → "(5.2)". */
+function tileFigure(page, label) {
+  return page
+    .locator("dt", { hasText: new RegExp(`^${label}$`) })
+    .locator("xpath=following-sibling::dd/span[1]")
+    .evaluate((el) => el.textContent.replace(/[€m]/g, ""));
+}
+
+/** Pairs of chart value labels whose boxes overlap (any chart), and labels sticking out of the viewport. */
+function chartLabelProblems(page) {
+  return page.evaluate(() => {
+    const problems = [];
+    for (const svg of document.querySelectorAll("section svg.overflow-visible")) {
+      const boxes = [...svg.querySelectorAll("text")].map((t) => ({ text: t.textContent, box: t.getBoundingClientRect() }));
+      boxes.forEach((a, i) => {
+        if (a.box.right > document.documentElement.clientWidth || a.box.left < 0) problems.push(`"${a.text}" outside the viewport`);
+        for (const b of boxes.slice(i + 1)) {
+          const overlap =
+            a.box.left < b.box.right - 0.5 && b.box.left < a.box.right - 0.5 &&
+            a.box.top < b.box.bottom - 0.5 && b.box.top < a.box.bottom - 0.5;
+          if (overlap) problems.push(`"${a.text}" overlaps "${b.text}"`);
+        }
+      });
+    }
+    return problems;
+  });
+}
+
+/** Charts: one bar per year, the waterfall reconciles to the tiles, cash appears once debt is repaid. */
+async function charts(page, where) {
+  const debtBars = () => page.locator('section[aria-labelledby="debt-title"] tbody tr').count();
+  expectEqual(where, "debt chart: Year 0 to 5", await debtBars(), 6);
+  expectEqual(where, "waterfall, base case", await bridgeSteps(page), {
+    "Equity invested": "31.6",
+    "EBITDA growth": "27.1",
+    "Multiple expansion": "0.0",
+    "Debt paydown": "23.6",
+    Fees: "(1.6)",
+    "Equity at exit": "80.7",
+  });
+
+  // A cash-generative deal: the debt is repaid, cash builds up, and the totals still match the tiles.
+  await page.locator("#input-leverage").fill("1");
+  await page.locator("#input-ebitdaMargin").fill("40");
+  await page.locator("#input-holdingPeriod").fill("7");
+  await page.waitForTimeout(100);
+  expectEqual(where, "debt chart: Year 0 to 7", await debtBars(), 8);
+  const steps = await bridgeSteps(page);
+  expectEqual(where, "cash build-up step", "Cash build-up" in steps, true);
+  expectEqual(where, "waterfall starts at the Equity invested tile", steps["Equity invested"], await tileFigure(page, "Equity invested"));
+  expectEqual(where, "waterfall ends at the Equity at exit tile", steps["Equity at exit"], await tileFigure(page, "Equity at exit"));
+  const tenths = (t) => (t.startsWith("(") ? -1 : 1) * Math.round(Number(t.replace(/[(),]/g, "")) * 10);
+  const values = Object.values(steps).map(tenths);
+  expectEqual(where, "waterfall foots", values.slice(1, -1).reduce((a, b) => a + b, 0), values.at(-1) - values[0]);
+  const cashKey = page.locator('section[aria-labelledby="debt-title"] p > span', { hasText: /^Cash$/ }).first();
+  if (!(await cashKey.isVisible())) fail(where, "debt chart: no Cash legend key once cash builds up");
+  for (const problem of await chartLabelProblems(page)) fail(where, `chart labels: ${problem}`);
+
+  await page.getByRole("button", { name: "Reset to base case" }).click();
+}
+
 // ── Scenarios ────────────────────────────────────────────────────────────────
 
 /** Desktop interactions: stable grid, window shifting, keyboard, metric toggle, invalid input, reset. */
@@ -243,6 +311,26 @@ try {
           await grid(page).screenshot({ path: file });
           shots[dark ? "dark" : "light"] = file;
         }
+        if (screenshotDir && name === "prod") {
+          mkdirSync(screenshotDir, { recursive: true });
+          const suffix = `${dark ? "dark" : "light"}-${isMobile ? "375" : "1280"}`;
+          for (const chart of ["debt", "attribution"]) {
+            await page.locator(`section[aria-labelledby="${chart}-title"]`).screenshot({ path: join(screenshotDir, `${chart}-${suffix}.png`) });
+          }
+        }
+        for (const problem of await chartLabelProblems(page)) fail(where, `chart labels: ${problem}`);
+        await charts(page, where);
+        if (screenshotDir && name === "prod") {
+          // The cash case, captured mid-check would be reset; redo it for a picture.
+          await page.locator("#input-leverage").fill("1");
+          await page.locator("#input-ebitdaMargin").fill("40");
+          await page.locator("#input-holdingPeriod").fill("7");
+          await page.waitForTimeout(700);
+          const suffix = `${dark ? "dark" : "light"}-${isMobile ? "375" : "1280"}`;
+          await page.locator('section[aria-labelledby="debt-title"]').screenshot({ path: join(screenshotDir, `debt-cash-${suffix}.png`) });
+          await page.locator('section[aria-labelledby="attribution-title"]').screenshot({ path: join(screenshotDir, `attribution-cash-${suffix}.png`) });
+          await page.getByRole("button", { name: "Reset to base case" }).click();
+        }
         if (isMobile) await mobile(page, where);
         else if (!dark) await interactions(page, where);
         await context.close();
@@ -272,4 +360,4 @@ if (problems.length > 0) {
   console.log(`\nFAIL: ${problems.length} problem(s)\n${problems.map((p) => `  ${p}`).join("\n")}`);
   process.exit(1);
 }
-console.log("PASS: 8 page loads (prod + dev × light + dark × desktop + phone), no console errors or warnings, interactions OK");
+console.log("PASS: 8 page loads (prod + dev × light + dark × desktop + phone), no console errors or warnings, interactions and charts OK");
