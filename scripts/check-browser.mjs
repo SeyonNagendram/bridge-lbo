@@ -204,6 +204,13 @@ async function charts(page, where) {
     Fees: "(1.6) \u22123%",
     "Equity at exit": "80.7",
   });
+  const note = await page.locator('section[aria-labelledby="attribution-title"] > p').last().textContent();
+  expectEqual(
+    where,
+    "waterfall note",
+    note.replace(/\s+/g, " ").trim(),
+    "Percentages show each step\u2019s share of the value created (€49.1m in this case). Figures may not sum due to rounding.",
+  );
   const leverage = await page
     .locator('section[aria-labelledby="debt-title"] tbody tr')
     .evaluateAll((rows) => rows.map((tr) => tr.cells[3].textContent));

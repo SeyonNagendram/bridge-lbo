@@ -2,8 +2,10 @@
 
 import type { LboResult } from "@/lib/lbo";
 import { bridgeChart, type BridgeKind } from "@/lib/charts";
+import { formatEuroMillions } from "@/lib/format";
 import { ChartValue } from "./ChartValue";
 import { sectionTitle } from "./styles";
+import { useFlash } from "./useFlash";
 
 const ROW = 32;
 const BAR = 20;
@@ -17,6 +19,13 @@ const FILL: Record<BridgeKind, string> = {
   decrease: "fill-negative",
 };
 
+/** Value created in the note, live, with the change highlight. A minus, not parentheses, inside the note's own brackets. */
+function ValueCreated({ value }: { value: number }) {
+  const text = value < 0 && formatEuroMillions(value).startsWith("(") ? `\u2212${formatEuroMillions(-value)}` : formatEuroMillions(value);
+  const ref = useFlash<HTMLSpanElement>(text);
+  return <span ref={ref}>{text}</span>;
+}
+
 /**
  * Returns attribution (§4 bridge) as a horizontal waterfall, equity invested to equity at exit. Category
  * names are an HTML column beside the SVG, on the same 32px rows, so they keep a fixed width while the
@@ -24,7 +33,7 @@ const FILL: Record<BridgeKind, string> = {
  * lib/charts.ts, each rounded on its own like the projection table; the bars use exact values.
  */
 export function ReturnsWaterfall({ result }: { result: LboResult }) {
-  const { steps, zero } = bridgeChart(result);
+  const { steps, zero, valueCreated } = bridgeChart(result);
   const height = steps.length * ROW;
 
   return (
@@ -107,7 +116,10 @@ export function ReturnsWaterfall({ result }: { result: LboResult }) {
           </svg>
         </div>
       </div>
-      <p className="mt-3 text-[13px] text-muted">Figures may not sum due to rounding.</p>
+      <p className="mt-3 text-[13px] text-pretty text-muted">
+        Percentages show each step&rsquo;s share of the value created (<ValueCreated value={valueCreated} /> in this
+        case). Figures may not sum due to rounding.
+      </p>
 
       {/* sr-only on the wrapper: a table ignores the 1px width and would widen the page. */}
       <div className="sr-only">
