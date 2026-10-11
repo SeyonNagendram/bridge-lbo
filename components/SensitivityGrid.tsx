@@ -62,7 +62,10 @@ function GridCell({ pos, cell, metric, tone, selected, focusable, onApply, onHot
     : `Apply entry ${entry}, exit ${exit} (${metricLabel} ${text})`;
 
   return (
-    <td ref={ref} className={`p-0 ${toneClass(tone)}`} style={{ "--tone": tone.strength } as CSSProperties}>
+    // --tone as a 3-decimal string: the raw strength comes from IRR (Math.pow), which can differ in the
+    // last digits between the server render (Node) and the browser, and React reports that as a
+    // hydration mismatch. Three decimals is far finer than any visible difference in tint.
+    <td ref={ref} className={`p-0 ${toneClass(tone)}`} style={{ "--tone": tone.strength.toFixed(3) } as CSSProperties}>
       <button
         type="button"
         data-pos={pos}

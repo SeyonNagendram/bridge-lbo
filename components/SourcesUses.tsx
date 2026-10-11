@@ -70,7 +70,8 @@ function CapitalStructureBar({ entry }: { entry: EntryValues }) {
         aria-label={`Capital structure: ${split.debtPct}% debt, ${split.equityPct}% equity`}
         className="mt-1 flex h-2 border border-border"
       >
-        <div className="bg-muted" style={{ width: `${split.debtShare * 100}%` }} />
+        {/* Rounded like every value rendered on the server, so no raw float reaches the HTML. */}
+        <div className="bg-muted" style={{ width: `${(split.debtShare * 100).toFixed(3)}%` }} />
         <div className="flex-1 bg-border" />
       </div>
     </div>
