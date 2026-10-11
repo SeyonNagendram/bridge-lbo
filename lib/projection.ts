@@ -10,6 +10,8 @@ export interface ProjectionRow {
   label: string;
   /** Subtotal rows (EBITDA, EBIT, Net income, FCF): medium weight with a hairline above. */
   subtotal?: boolean;
+  /** Ratio rows (margin, leverage, coverage): italic and muted, so they don't read as € figures. */
+  ratio?: boolean;
   /** First row of a new block (balance sheet, credit statistics): extra space above. */
   groupStart?: boolean;
   /** One string per column, Year 0 first. "" where a figure doesn't exist (flows in Year 0). */
@@ -19,11 +21,16 @@ export interface ProjectionRow {
 /** Not applicable: flows have no Year 0 value; the table leaves the cell empty. */
 const NONE = "";
 
+/** An exact zero (e.g. cash while debt is still being repaid) shows as an en dash, banking-style. */
+export const ZERO = "\u2013";
+
+const orDash = (value: number, format: (value: number) => string) => (value === 0 ? ZERO : format(value));
+
 type Column = { year0: string; year: (y: ProjectionYear) => string };
 
 const money = (pick: (y: ProjectionYear) => number, year0: number | null, sign = 1): Column => ({
-  year0: year0 === null ? NONE : formatMoney(sign * year0),
-  year: (y) => formatMoney(sign * pick(y)),
+  year0: year0 === null ? NONE : orDash(sign * year0, formatMoney),
+  year: (y) => orDash(sign * pick(y), formatMoney),
 });
 
 export function projectionRows(result: LboResult): ProjectionRow[] {
@@ -41,7 +48,7 @@ export function projectionRows(result: LboResult): ProjectionRow[] {
     row("ebitdaMargin", "EBITDA margin", {
       year0: formatPercent(inputs.ebitdaMargin),
       year: (y) => formatPercent(y.ebitdaMargin),
-    }),
+    }, { ratio: true }),
     row("da", "D&A", money((y) => y.da, null, -1)),
     row("ebit", "EBIT", money((y) => y.ebit, null), { subtotal: true }),
     row("interest", "Interest", money((y) => y.interest, null, -1)),
@@ -58,12 +65,12 @@ export function projectionRows(result: LboResult): ProjectionRow[] {
     row(
       "leverage",
       "Leverage",
-      { year0: formatMultiple(entry.leverage), year: (y) => formatMultiple(y.leverage) },
-      { groupStart: true },
+      { year0: orDash(entry.leverage, formatMultiple), year: (y) => orDash(y.leverage, formatMultiple) },
+      { groupStart: true, ratio: true },
     ),
     row("interestCoverage", "Interest coverage", {
       year0: NONE,
       year: (y) => (y.interestCoverage === null ? "—" : formatMultiple(y.interestCoverage)),
-    }),
+    }, { ratio: true }),
   ];
 }

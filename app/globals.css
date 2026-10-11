@@ -94,6 +94,14 @@ body {
   animation: flash 600ms ease-out;
 }
 
+/* A hyphenated word in running text ("Year-1", "add-back"). With tabular figures on, Inter draws the
+   hyphen (and the digit 1) at figure width, which reads as "Year - 1". Proportional figures restore normal
+   spacing; nowrap keeps the word on one line. */
+.word {
+  white-space: nowrap;
+  font-variant-numeric: normal;
+}
+
 /* Scroll container that fades its content at an edge only while there is more to scroll that way.
    A mask on the content, not a painted gradient. */
 .scroll-fade {
@@ -114,6 +122,16 @@ body {
 
 .scroll-fade[data-fade-bottom] {
   --fade-bottom: 24px;
+}
+
+/* The same, horizontally, for the right edge of a wide table (the pinned first column covers the left). */
+.scroll-fade-x {
+  --fade-right: 0px;
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--fade-right)), transparent 100%);
+}
+
+.scroll-fade-x[data-fade-right] {
+  --fade-right: 32px;
 }
 
 @media (prefers-reduced-motion: reduce) {

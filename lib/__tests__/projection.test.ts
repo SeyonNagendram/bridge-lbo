@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectionRows } from "../projection";
+import { ZERO, projectionRows } from "../projection";
 import { BASE_CASE, INPUT_KEYS, INPUT_SPECS, calculate, runLbo, type LboInputs, type LboResult } from "../lbo";
 import { seededRandom } from "../lbo/__tests__/helpers";
 
@@ -8,6 +8,7 @@ const rowOf = (rows: ReturnType<typeof projectionRows>, key: string) => rows.fin
 
 /** A displayed cell back to a number: "(1.6)" → −1.6, "1,234.5" → 1234.5. */
 function parseCell(text: string): number {
+  if (text === ZERO) return 0;
   const negative = text.startsWith("(");
   const value = Number(text.replace(/[(),]/g, ""));
   return negative ? -value : value;
@@ -106,7 +107,19 @@ describe("projectionRows", () => {
       expect(cells[0]).toBe("");
       expect(cells[1]).toMatch(/^\(\d/);
     }
-    expect(rowOf(base, "cash").cells[0]).toBe("0.0");
+  });
+
+  it("shows exact zeros as an en dash", () => {
+    // Base case: all FCF goes to debt repayment, so cash is exactly zero throughout.
+    expect(rowOf(base, "cash").cells).toEqual(["–", "–", "–", "–", "–", "–"]);
+    const allEquity = projectionRows(runLbo({ ...BASE_CASE, leverage: 0 }));
+    expect(rowOf(allEquity, "debt").cells[0]).toBe("–");
+    expect(rowOf(allEquity, "leverage").cells[0]).toBe("–");
+    expect(rowOf(allEquity, "interest").cells.slice(1)).toEqual(["–", "–", "–", "–", "–"]);
+  });
+
+  it("marks the ratio rows", () => {
+    expect(base.filter((r) => r.ratio).map((r) => r.label)).toEqual(["EBITDA margin", "Leverage", "Interest coverage"]);
   });
 
   it("shows a dash for coverage when there is no interest", () => {

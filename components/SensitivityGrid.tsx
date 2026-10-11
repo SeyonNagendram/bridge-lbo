@@ -215,7 +215,7 @@ export function SensitivityGrid({ inputs, onApply }: SensitivityGridProps) {
         </table>
       </div>
       <p className="mt-3 text-[13px] text-muted">
-        Each cell re-runs the full model with only the two multiples changed. Shading shows the change against the
+        Each cell <span className="word">re-runs</span> the full model with only the two multiples changed. Shading shows the change against the
         current case (outlined): green higher, red lower. Select a cell to apply its multiples.
       </p>
     </section>

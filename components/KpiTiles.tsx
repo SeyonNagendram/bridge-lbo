@@ -119,7 +119,7 @@ export function KpiTiles({ result }: { result: LboResult }) {
         Entry leverage <LineFigure value={formatMultiple(entry.leverage)} />
         <span aria-hidden="true"> · </span>
         <span className="sr-only">, </span>
-        Year-1 interest coverage{" "}
+        <span className="word">Year-1</span> interest coverage{" "}
         <LineFigure value={coverageYear1 === null ? "—" : formatMultiple(coverageYear1)} />
       </p>
     </section>
