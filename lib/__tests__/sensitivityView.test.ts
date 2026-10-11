@@ -10,12 +10,50 @@ describe("gridTones", () => {
     expect(irr[2][2]).toEqual({ direction: "flat", strength: 0 });
   });
 
-  it("diverges: better cells up, worse cells down, scaled to the furthest cell", () => {
+  it("diverges: better cells up, worse cells down, on one square-root scale", () => {
     // Entry 7.0x / exit 9.0x is the best cell (34.5%), entry 9.0x / exit 7.0x the worst (10.0%).
     expect(irr[0][4]).toEqual({ direction: "up", strength: 1 });
     expect(irr[4][0]?.direction).toBe("down");
-    expect(irr[4][0]?.strength).toBeCloseTo((0.2062 - 0.1) / (0.345 - 0.2062), 1);
+    expect(irr[4][0]?.strength).toBeCloseTo(Math.sqrt((0.2062 - 0.1) / (0.345 - 0.2062)), 1);
     for (const row of irr) for (const tone of row) expect(tone!.strength).toBeGreaterThanOrEqual(0);
+  });
+
+  it("uses one symmetric scale: the smaller side never reaches full strength", () => {
+    // The best cell is further from the centre (+13.9pp) than the worst (−10.6pp), so red stays below 1.
+    const strongestDown = Math.max(...irr.flat().filter((t) => t!.direction === "down").map((t) => t!.strength));
+    expect(strongestDown).toBeLessThan(1);
+    expect(strongestDown).toBeCloseTo(Math.sqrt(0.106 / 0.139), 1);
+  });
+
+  it("lifts mid-range cells with the square-root curve, keeping their order", () => {
+    const grid = sensitivityGrid(BASE_CASE);
+    const ups = grid.cells
+      .flat()
+      .map((cell, i) => ({ irr: cell!.irr!, strength: irr.flat()[i]!.strength, up: irr.flat()[i]!.direction === "up" }))
+      .filter((c) => c.up)
+      .sort((a, b) => a.irr - b.irr);
+    for (let i = 1; i < ups.length; i++) expect(ups[i].strength).toBeGreaterThanOrEqual(ups[i - 1].strength);
+  });
+
+  it("maps distance to strength with a square root, the same on both sides", () => {
+    // Synthetic grid: centre 20%, best +10pp, others at a quarter of that distance either way.
+    const values = [
+      [0.3, 0.225, 0.2, 0.2, 0.2],
+      [0.2, 0.2, 0.2, 0.2, 0.2],
+      [0.2, 0.2, 0.2, 0.2, 0.2],
+      [0.2, 0.2, 0.2, 0.2, 0.2],
+      [0.2, 0.2, 0.2, 0.2, 0.175],
+    ];
+    const grid = {
+      entryMultiples: [7, 7.5, 8, 8.5, 9],
+      exitMultiples: [7, 7.5, 8, 8.5, 9],
+      cells: values.map((row, r) => row.map((irr, c) => ({ entryMultiple: 7 + r / 2, exitMultiple: 7 + c / 2, irr, mom: 2 }))),
+    };
+    const tones = gridTones(grid, "irr");
+    expect(tones[0][0]).toEqual({ direction: "up", strength: 1 });
+    expect(tones[0][1]?.strength).toBeCloseTo(0.5, 9); // √0.25
+    expect(tones[4][4]?.direction).toBe("down");
+    expect(tones[4][4]?.strength).toBeCloseTo(tones[0][1]!.strength, 9);
   });
 
   it("uses MoM when asked", () => {

@@ -31,8 +31,12 @@ const FLAT: Record<Metric, number> = { irr: 0.0005, mom: 0.005 };
 
 /**
  * Diverging tone for every cell, measured against the grid's anchor (its middle cell), not the
- * selected case, so colours stay put when the selection moves. Strength is linear in the distance
- * from the anchor, scaled to the furthest cell, so the scale always uses its full range. An n.m. IRR is the worst possible outcome: full-strength down.
+ * selected case, so colours stay put when the selection moves.
+ *
+ * One symmetric scale for both sides, normalised to the largest absolute deviation in the grid: a
+ * smaller downside never looks as large as the upside. A square-root curve on top lifts the cells
+ * between the centre and the extremes (halfway out gets ~71% of the tint, not 50%) while keeping
+ * the order of magnitudes. An n.m. IRR is the worst possible outcome: full-strength down.
  * Blank cells (outside the allowed input range) stay null.
  */
 export function gridTones(grid: SensitivityGrid, metric: Metric): (Tone | null)[][] {
@@ -58,7 +62,7 @@ export function gridTones(grid: SensitivityGrid, metric: Metric): (Tone | null)[
       if (value === null) return { direction: "down", strength: 1 };
       const diff = value - centre;
       if (Math.abs(diff) < FLAT[metric] || maxDistance === 0) return { direction: "flat", strength: 0 };
-      return { direction: diff > 0 ? "up" : "down", strength: Math.abs(diff) / maxDistance };
+      return { direction: diff > 0 ? "up" : "down", strength: Math.sqrt(Math.abs(diff) / maxDistance) };
     }),
   );
 }

@@ -45,7 +45,7 @@ describe.each([
   });
 
   it("uses the agreed maximum tint", () => {
-    expect(t["heat-max"]).toBe(selector.includes("dark") ? "40%" : "32%");
+    expect(t["heat-max"]).toBe(selector.includes("dark") ? "40%" : "48%");
   });
 });
 

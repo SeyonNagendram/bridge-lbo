@@ -17,7 +17,8 @@
      surface at up to --heat-max. Contrast with --text at full tint is checked in lib/__tests__/heat.test.ts. */
   --heat-up: #1a8754;
   --heat-down: #c4372e;
-  --heat-max: 32%;
+  /* Higher than dark (40%): the same tint reads much weaker on white than on a near-black surface. */
+  --heat-max: 48%;
 }
 
 @media (prefers-color-scheme: dark) {
