@@ -1,4 +1,4 @@
-// Methodology (§8): static text, rendered on the server only, so it adds no JavaScript to the page.
+// Methodology (§8), the body of the /methodology page: static text, rendered on the server only.
 
 import type { ReactNode } from "react";
 import { sectionTitle } from "./styles";
@@ -20,7 +20,7 @@ function Formulas({ lines }: { lines: string[] }) {
 function Step({ title, children }: { title: string; children: ReactNode }) {
   return (
     <li>
-      <h4 className="font-medium">{title}</h4>
+      <h3 className="font-medium">{title}</h3>
       {children}
     </li>
   );
@@ -31,11 +31,11 @@ const subheading = "mt-8 mb-2 font-serif text-[15px] font-semibold";
 export function Methodology() {
   return (
     <section aria-labelledby="methodology-title" className="max-w-[72ch] text-pretty">
-      <h2 id="methodology-title" className={`${sectionTitle} mb-3`}>
+      <h1 id="methodology-title" className={`${sectionTitle} mb-3`}>
         Methodology
-      </h2>
+      </h1>
 
-      <h3 className={subheading}>What an LBO is</h3>
+      <h2 className={subheading}>What an LBO is</h2>
       <p>
         A leveraged buyout (LBO) is the purchase of a company paid for largely with borrowed money. The buyer, usually a
         private equity fund, puts in a smaller amount of its own money as equity. While the fund owns the company, the
@@ -43,7 +43,7 @@ export function Methodology() {
         equity. When the company is sold, the remaining debt is repaid and everything left over goes to the fund.
       </p>
 
-      <h3 className={subheading}>How the model works</h3>
+      <h2 className={subheading}>How the model works</h2>
       <p>
         All amounts are in € millions. Year 0 is the day of the purchase; the company is owned for N years, the holding
         period.
@@ -144,7 +144,7 @@ export function Methodology() {
         </Step>
       </ol>
 
-      <h3 className={subheading}>Simplifying assumptions</h3>
+      <h2 className={subheading}>Simplifying assumptions</h2>
       <ul className="list-disc space-y-1 pl-5 marker:text-muted">
         <li>One type of debt, at one interest rate.</li>
         <li>Interest is charged on the debt at the start of each year.</li>
@@ -165,7 +165,7 @@ export function Methodology() {
         </li>
       </ul>
 
-      <h3 className={subheading}>Colours</h3>
+      <h2 className={subheading}>Colours</h2>
       <p>
         Figures you can change are shown in <span className="text-input">blue</span>; figures the model calculates
         are in black (white in dark mode). This follows the convention in banking Excel models, where blue marks an

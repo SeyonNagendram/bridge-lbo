@@ -2,13 +2,14 @@
 
 > Name: **Bridge** (after the value creation bridge), subtitle "LBO returns calculator". Renamed from the working title "Sweep" in Phase 5; the name lives in one constant (`APP_NAME` in `lib/site.ts`).
 
-## 0. How to work with me
+## 0. Purpose and working method
 
-- I'm Seyon, a first-year Business & Economics student at Goethe University Frankfurt, targeting investment banking and private equity. This app goes on my LinkedIn and CV. Recruiters and bankers will click it. It has to be **correct, fast and calm-looking**.
-- I built the underlying model myself in Excel. **Every number in this app must match my Excel model exactly** (golden values in §6). If the code and the Excel disagree, the code is wrong until proven otherwise.
-- Work in the **phases in §9**. **Stop at the end of every phase**, show me what you built, and explain each architectural decision in 2–3 plain sentences so I can defend it in an interview.
-- **Do not add features, pages or dependencies beyond this brief without asking first.**
-- Prefer fewer moving parts. No backend, no database, no auth, no analytics, no cookies.
+- **Purpose.** A public portfolio piece: a calculator that bankers, PE professionals and recruiters can open and understand in under a minute. It has to be **correct, fast and calm-looking**.
+- **Source of truth.** The model was designed by hand in Excel before any code was written. **Every number in the app must match the Excel model exactly** (golden values in §6). If the code and the Excel disagree, the code is treated as wrong until proven otherwise.
+- **Phased build.** The app is built in the **phases in §9**, each ending with a working, tested state. After each phase the work is reviewed against this brief, every architectural decision is explained briefly in plain language, and review findings are folded back into the brief (marked *Updated after Phase n*) before the next phase starts.
+- **Verification.** Golden-value tests (Vitest) pin the engine to the Excel model; invariant tests cover random inputs and edge cases; `npm run check:browser` exercises the built app in Chrome (§10).
+- **Scope control.** No features, pages or dependencies beyond this brief without an explicit decision to add them.
+- **Fewer moving parts.** No backend, no database, no auth, no analytics, no cookies.
 
 ## 1. What the app is
 
@@ -24,11 +25,11 @@ Target audience: bankers, PE professionals and recruiters spending 30–90 secon
 
 | Area | Choice | Reason |
 |---|---|---|
-| Framework | Next.js (latest stable, App Router), **static export** | I know it; static = fastest + free hosting |
+| Framework | Next.js (latest stable, App Router), **static export** | widely used; static = fastest + free hosting |
 | Language | TypeScript, `strict: true` | correctness |
 | Styling | Tailwind CSS with design tokens as CSS variables | consistency, dark mode |
 | Calculation | **Pure TypeScript module** `lib/lbo/` with no React imports | testable, reusable, framework-agnostic |
-| Tests | Vitest | golden-value tests against my Excel |
+| Tests | Vitest | golden-value tests against the Excel model |
 | Charts | **Hand-built SVG components, no chart library** | performance and full design control |
 | Font | Inter via `next/font`, `font-variant-numeric: tabular-nums` everywhere numbers appear; Source Serif 4 (weight 600 only) for the page title and section headings (§11) | aligned figures |
 | Hosting | Vercel | |
@@ -145,7 +146,11 @@ Sum                 = Equity_exit − Equity_0          // assert this in tests
 
 ## 5. Screens and layout
 
-One page plus a methodology section. No other routes in v1.
+Two pages: the model at `/` and the methodology at `/methodology`. No other routes in v1. *(Updated after Phase 5: the methodology moved from the bottom of the model page to its own page.)*
+
+**Header (both pages):** the name and subtitle on the left; on the right a quiet "Methodology" text link (muted, underlined on hover, marked `aria-current="page"` on the methodology page) next to the theme toggle. On the model page the name is the `h1`; on the methodology page "Methodology" is.
+
+**Keeping the scenario across pages:** every link between the two pages (`ScenarioLink`) carries the current query string, so a reader's inputs, and any other parameters, are still there on the way back. Because the address bar follows the inputs only after a short debounce, the link asks the calculator to write any pending change before it navigates. Plain links (full page loads), no client router: both pages stay static HTML.
 
 **Desktop (≥ 1024px):** two columns.
 - **Left, sticky, ~340px:** input panel with the three groups.
@@ -156,14 +161,14 @@ One page plus a methodology section. No other routes in v1.
   4. **Value creation bridge** — horizontal waterfall from equity invested to equity at exit using the bridge in §4. *(Updated after Phase 3: Equity invested → EBITDA growth → Multiple expansion → Debt paydown → Cash build-up (only if > 0) → Fees → Equity at exit. The two totals in the same grey as the debt bars, increases in `--positive`, decreases in `--negative`: grey = capital, green/red = value drivers, consistently across the page. Thin connector lines between bars, a value label on every bar. Every figure is rounded on its own, as in the projection table, with a note beneath: "Percentages show each step's share of the value created (€49.1m in this case). Figures may not sum due to rounding.", where the figure is the live value created; the totals read exactly as the KPI tiles, and the bars use exact values. Exact zeros show as an en dash, with the row kept and no bar. Next to each step's value, its share of the value created (Equity at exit − Equity invested) in small muted text, e.g. "27.1 · 55%", "(1.6) · −3%"; "n.m." when the value created is zero or negative at display precision, or for a share of ±1,000% or more. The shares sum to 100% within rounding; tested in `lib/__tests__/charts.test.ts`.)*
   5. **Sensitivity grid** — with the current case highlighted (outline, not a fill) and the colour scale described in §7.
   6. **Projection table** — rows: Revenue, EBITDA, EBITDA margin, D&A, EBIT, Interest, EBT, Tax, Net income, D&A (add-back), Capex, ΔNWC, FCF, Debt (end of year), Cash, Leverage, Interest coverage. Columns: Year 0 … N. Subtotal rows (EBITDA, EBIT, Net income, FCF) in medium weight with a hairline above. *(Updated after Phase 2: D&A is added back between Net income and Capex, so the cash flow block foots as displayed: Net income + D&A − Capex − ΔNWC = FCF. Deductions are shown in parentheses. Each figure is rounded on its own, so outside the base case the displayed parts can differ from the displayed FCF by up to 0.1–0.2 through rounding alone; tested in `lib/__tests__/projection.test.ts`.)*
-- **Methodology** section at the bottom (see §8).
+- **Methodology page** (`/methodology`, see §8): a "← Back to model" link at the top, then the methodology text, then the footer. Same container, typography and light/dark tokens as the model page; its own title ("Methodology · Bridge"), description and canonical URL, and the same Open Graph image. Covered by `npm run check:browser` in both themes and both widths, plus a model → methodology → model round trip with a custom scenario.
 - **Footer:** "Built by Seyon Nagendram" with a LinkedIn link, "Illustrative model, not investment advice.", link to the GitHub repo (both URLs in `lib/site.ts`).
 
 **Mobile (< 1024px):** single column. KPI tiles first (2 × 2), then a collapsible "Assumptions" panel (open by default on first load), then the sections in the same order. Tables scroll horizontally inside their own container with the first column pinned; the page itself never scrolls horizontally.
 
 **Shareable scenarios:** all inputs are encoded in the URL query string (short keys, only values that differ from the base case). Opening such a URL restores the scenario. A "Copy link" button copies the current URL. Updating the URL must not trigger navigation or re-render jank (use `history.replaceState`, debounced).
 
-## 6. Golden values — the engine must reproduce my Excel model
+## 6. Golden values — the engine must reproduce the Excel model
 
 Base case = defaults in §3, N = 5. Tolerance: ±0.05 for €m values, ±0.05x for multiples, ±0.1 percentage points for IRR.
 
@@ -240,7 +245,7 @@ Dark mode follows the system setting, with a manual toggle in the header (choice
 
 **Accessibility:** WCAG 2.1 AA. Every input has a visible label, full keyboard navigation, visible focus rings, charts have a text alternative (a visually hidden table or `aria-label` summary).
 
-## 8. Methodology section (content I will review)
+## 8. Methodology (content reviewed by hand)
 
 Short, plain-English explanation of:
 1. What an LBO is (3–4 sentences).
@@ -249,12 +254,12 @@ Short, plain-English explanation of:
 4. The blue/black convention.
 5. "Illustrative model for educational purposes. Not investment advice."
 
-Draft this text, then **stop and let me review it** — I must be able to explain every sentence.
+The text is drafted, then **reviewed line by line** before it ships: every sentence must be accurate and explainable in plain terms.
 
 ## 9. Phases (stop after each)
 
 **Phase 0 — Engine and tests**
-Project setup, `lib/lbo/` engine, types, input validation, all tests from §6 passing. No UI yet. Show me the test output.
+Project setup, `lib/lbo/` engine, types, input validation, all tests from §6 passing. No UI yet. Review of the test output.
 
 **Phase 1 — Layout and inputs**
 Page shell, design tokens, light/dark, input panel wired to the engine, KPI tiles, Sources & Uses. Desktop and mobile.

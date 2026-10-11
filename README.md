@@ -8,7 +8,7 @@ Bridge models a simple leveraged buyout in the browser. Change the deal assumpti
 
 ## Methodology in brief
 
-The full methodology, with every formula, is at the bottom of the app. In short:
+The full methodology, with every formula, is on its own page: [bridge-lbo.vercel.app/methodology](https://bridge-lbo.vercel.app/methodology). In short:
 
 1. **Entry.** EV = EBITDA × entry multiple. Debt = EBITDA × leverage. Fees are a percentage of EV and are funded with equity, so equity invested = EV + fees − debt.
 2. **Operations.** Revenue grows at a constant rate; EBITDA, D&A and capex are percentages of revenue, and working capital is a percentage of the change in revenue. Free cash flow = net income + D&A − capex − ΔNWC.
@@ -31,6 +31,10 @@ I designed the model by hand in Excel first. The app's calculation engine (`lib/
 - **In the browser** (`scripts/check-browser.mjs`): the production build and the dev server in Chrome, light and dark, desktop and phone width, with no console errors or warnings and the main interactions working.
 
 The link preview image is rendered from the engine at build time, so even the 20.6% in it is calculated, not typed.
+
+## How it was built
+
+The app was built in phases from a written specification, [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md): engine and golden-value tests first, then layout and inputs, tables, charts, polish and shipping, with a review against the brief after each phase.
 
 ## Stack
 

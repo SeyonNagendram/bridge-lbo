@@ -20,6 +20,7 @@ import { InputPanel } from "./InputPanel";
 import { KpiTiles } from "./KpiTiles";
 import { ProjectionTable } from "./ProjectionTable";
 import { ReturnsWaterfall } from "./ReturnsWaterfall";
+import { FLUSH_SCENARIO_URL } from "./ScenarioLink";
 import { SensitivityGrid } from "./SensitivityGrid";
 import { SourcesUses } from "./SourcesUses";
 
@@ -54,13 +55,19 @@ export function Calculator() {
   // The address bar follows the inputs (the last valid result) once typing pauses: replaceState, so
   // no navigation, no history entry per keystroke, and no re-render.
   const inputs = state.result.inputs;
+  // A ScenarioLink about to leave the page asks for the pending write at once (FLUSH_SCENARIO_URL).
   useEffect(() => {
     if (!urlReady.current) return;
-    const timer = setTimeout(() => {
+    const write = () => {
       const url = scenarioUrl(inputs);
       if (url !== window.location.href) window.history.replaceState(null, "", url);
-    }, URL_DELAY_MS);
-    return () => clearTimeout(timer);
+    };
+    const timer = setTimeout(write, URL_DELAY_MS);
+    window.addEventListener(FLUSH_SCENARIO_URL, write);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener(FLUSH_SCENARIO_URL, write);
+    };
   }, [inputs]);
 
   const handleDraftChange = (field: InputKey, text: string) => setState((s) => editDraft(s, field, text));

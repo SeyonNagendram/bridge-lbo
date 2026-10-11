@@ -98,8 +98,11 @@ async function launch() {
   }
 }
 
-/** Opens the app with every console/runtime/network problem recorded against `where`. */
-async function openPage(browser, url, where, { dark = false, mobile = false } = {}) {
+/**
+ * Opens a page with every console/runtime/network problem recorded against `where`; `ready` is a selector
+ * that exists once the page has rendered (the model page by default).
+ */
+async function openPage(browser, url, where, { dark = false, mobile = false, ready = "#sensitivity-title" } = {}) {
   const context = await browser.newContext({
     colorScheme: dark ? "dark" : "light",
     viewport: mobile ? { width: 375, height: 812 } : { width: 1280, height: 900 },
@@ -124,9 +127,71 @@ async function openPage(browser, url, where, { dark = false, mobile = false } = 
   });
 
   await page.goto(url, { waitUntil: "networkidle", timeout: 90_000 });
-  await page.waitForSelector("#sensitivity-title", { timeout: 30_000 });
+  await page.waitForSelector(ready, { timeout: 30_000 });
   await page.waitForTimeout(500); // hydration has finished and reported any mismatch
   return { page, context };
+}
+
+// ── Methodology page ─────────────────────────────────────────────────────────
+
+const METHODOLOGY_TITLE = "Methodology · Bridge";
+
+/** The page on its own: heading, tags, theme, header link, nothing overflowing, and none of the model. */
+async function methodologyPage(page, where, { dark }) {
+  const info = await page.evaluate(() => ({
+    h1: [...document.querySelectorAll("h1")].map((h) => h.textContent.trim()),
+    title: document.title,
+    canonical: document.querySelector('link[rel="canonical"]')?.href,
+    ogImage: document.querySelector('meta[property="og:image"]')?.content,
+    ogUrl: document.querySelector('meta[property="og:url"]')?.content,
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    background: getComputedStyle(document.body).backgroundColor,
+    current: document.querySelector('nav a[aria-current="page"]')?.textContent,
+    back: [...document.querySelectorAll("main a")].some((a) => a.textContent.includes("Back to model")),
+    model: Boolean(document.getElementById("sensitivity-title")),
+    steps: document.querySelectorAll("#methodology-title ~ ol > li").length,
+  }));
+  expectEqual(where, "methodology h1", info.h1, ["Methodology"]);
+  expectEqual(where, "methodology <title>", info.title, METHODOLOGY_TITLE);
+  expectEqual(where, "methodology canonical", info.canonical, "https://bridge-lbo.vercel.app/methodology");
+  expectEqual(where, "methodology og:url", info.ogUrl, "https://bridge-lbo.vercel.app/methodology");
+  expectEqual(where, "methodology og:image", info.ogImage, "https://bridge-lbo.vercel.app/og.png");
+  expectEqual(where, "methodology background", info.background, dark ? "rgb(11, 13, 16)" : "rgb(250, 250, 248)");
+  expectEqual(where, "header link marks the current page", info.current, "Methodology");
+  expectEqual(where, "back link", info.back, true);
+  expectEqual(where, "no model on the methodology page", info.model, false);
+  expectEqual(where, "methodology steps", info.steps, 7);
+  if (info.overflow > 0) fail(where, `methodology page scrolls horizontally by ${info.overflow}px`);
+}
+
+/**
+ * Model → Methodology → model keeps a custom scenario (and any other parameter). Methodology is clicked
+ * straight after typing, inside the address bar's debounce, so the link must flush the pending write.
+ */
+async function roundTrip(page, where) {
+  // Opened with ?utm_source=x (see the run loop): other parameters must survive the trip as well.
+  const scenario = "?utm_source=x&margin=25&entry=9&yrs=7";
+  await page.locator("#input-ebitdaMargin").fill("25");
+  await page.locator("#input-entryMultiple").fill("9");
+  await page.locator("#input-holdingPeriod").fill("7");
+  await page.getByRole("link", { name: "Methodology" }).click();
+  await page.waitForURL(/\/methodology/, { timeout: 30_000 });
+  await page.waitForSelector("#methodology-title");
+  const there = new URL(page.url());
+  expectEqual(where, "round trip: methodology path", there.pathname.replace(/\.html$/, ""), "/methodology");
+  expectEqual(where, "round trip: scenario carried to methodology", there.search, scenario);
+  expectEqual(where, "round trip: methodology <title>", await page.title(), METHODOLOGY_TITLE);
+
+  await page.getByRole("link", { name: "Back to model" }).click();
+  await page.waitForSelector("#sensitivity-title", { timeout: 30_000 });
+  await page.waitForTimeout(500);
+  const back = new URL(page.url());
+  expectEqual(where, "round trip: back on the model", back.pathname, "/");
+  expectEqual(where, "round trip: scenario carried back", back.search, scenario);
+  for (const [id, value] of [["ebitdaMargin", "25.0"], ["entryMultiple", "9.0"], ["holdingPeriod", "7"]]) {
+    expectEqual(where, `round trip: ${id} restored`, await page.locator(`#input-${id}`).inputValue(), value);
+  }
+  expectEqual(where, "round trip: no methodology on the model page", await page.locator("#methodology-title").count(), 0);
 }
 
 const grid = (page) => page.locator('section[aria-labelledby="sensitivity-title"]');
@@ -367,7 +432,7 @@ async function edgeState(page, where, { query, fields, tiles, cleaned }) {
       text: s.textContent,
       fits: s.scrollWidth <= s.parentElement.clientWidth,
     })),
-    sections: ["returns", "sources-uses", "debt", "attribution", "sensitivity", "projection", "methodology"].filter(
+    sections: ["returns", "sources-uses", "debt", "attribution", "sensitivity", "projection"].filter(
       (id) => !document.getElementById(`${id}-title`)?.closest("section")?.getBoundingClientRect().height,
     ),
     text: document.body.innerText,
@@ -432,7 +497,19 @@ try {
           await urlState(page, context, where);
         }
         await context.close();
+
+        const methodology = await openPage(browser, `${target.url}methodology`, `${where} /methodology`, {
+          dark,
+          mobile: isMobile,
+          ready: "#methodology-title",
+        });
+        await methodologyPage(methodology.page, `${where} /methodology`, { dark });
+        await methodology.context.close();
       }
+      // Round trip with a custom scenario, desktop, in each theme.
+      const trip = await openPage(browser, `${target.url}?utm_source=x`, `${name} ${dark ? "dark" : "light"} round trip`, { dark });
+      await roundTrip(trip.page, `${name} ${dark ? "dark" : "light"} round trip`);
+      await trip.context.close();
     }
     for (const isMobile of [false, true]) {
       for (const edge of EDGE_URLS) {
@@ -467,5 +544,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `PASS: ${8 + 4 * EDGE_URLS.length} page loads (prod + dev × light + dark × desktop + phone, plus ${EDGE_URLS.length} edge-state URLs × desktop + phone), no console errors or warnings; interactions, charts, URL state and edge states OK`,
+  `PASS: ${16 + 4 + 4 * EDGE_URLS.length} page loads (model and /methodology × prod + dev × light + dark × desktop + phone, 4 round trips with a custom scenario, ${EDGE_URLS.length} edge-state URLs × desktop + phone), no console errors or warnings; interactions, charts, URL state, round trips and edge states OK`,
 );

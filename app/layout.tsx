@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
-import { OG_IMAGE } from "@/lib/ogImage";
+import { pageMetadata } from "@/lib/metadata";
 import { APP_DESCRIPTION, APP_NAME, APP_SUBTITLE, AUTHOR_NAME, LINKEDIN_URL, SITE_URL, THEME_STORAGE_KEY } from "@/lib/site";
 
 const inter = Inter({
@@ -16,25 +16,12 @@ const sourceSerif = Source_Serif_4({
   weight: "600",
 });
 
-const title = `${APP_NAME} · ${APP_SUBTITLE}`;
-
 // metadataBase makes every metadata URL absolute (og:image, canonical), which LinkedIn requires. The
-// Open Graph image is rendered at build time by app/og.png/route.tsx.
+// Open Graph image is rendered at build time by app/og.png/route.tsx; pages set their own tags.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title,
-  description: APP_DESCRIPTION,
   authors: [{ name: AUTHOR_NAME, url: LINKEDIN_URL }],
-  alternates: { canonical: "/" },
-  openGraph: {
-    type: "website",
-    url: "/",
-    siteName: APP_NAME,
-    title,
-    description: APP_DESCRIPTION,
-    images: [OG_IMAGE],
-  },
-  twitter: { card: "summary_large_image", title, description: APP_DESCRIPTION, images: [OG_IMAGE] },
+  ...pageMetadata({ title: `${APP_NAME} · ${APP_SUBTITLE}`, description: APP_DESCRIPTION, path: "/" }),
 };
 
 // Browser chrome follows the page background (--bg) in each theme.
