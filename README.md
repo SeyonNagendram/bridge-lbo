@@ -47,7 +47,7 @@ The app was built in phases from a written specification, [docs/PROJECT_BRIEF.md
 
 ## Run it locally
 
-Requires Node.js 22 or later (`nvm use` picks it up from `.nvmrc`).
+Requires Node.js 22 (`nvm use` picks it up from `.nvmrc`). `package.json` pins `"engines": { "node": "22.x" }`, so Vercel builds on the same major version the checks run on.
 
 ```bash
 npm install
